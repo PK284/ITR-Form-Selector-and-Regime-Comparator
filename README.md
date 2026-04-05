@@ -85,4 +85,4 @@ python3 -m http.server 8080
 ## 🤝 Contributing
 Found a bug with a specific tax calculation edge case? Have an idea for a new feature? Know of a tax deduction rule I missed? Pull requests are incredibly welcome! Let's make this the standard free tool for everyone.
 
-**Disclaimer:** *I am a developer, not your CA. This tool is built using the latest publicly available Budget rules for educational and informational purposes only. Do not consider this as professional financial advice. Please consult a qualified tax professional before filing.*
+**Disclaimer:** *I am just a vibe-coder, not your CA. This tool is built using the latest publicly available Budget rules for educational and informational purposes only. Do not consider this as professional financial advice. Please consult a qualified tax professional before filing.*
