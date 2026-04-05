@@ -307,28 +307,42 @@ const UIController = (() => {
     // RENDER TIPS
     // ──────────────────────────────────────────────────
 
-    function renderTips(tips) {
+        function renderTips(tipsObj) {
         const container = document.getElementById('tipsContent');
-
-        if (tips.length === 0) {
-            container.innerHTML = `
-                <div class="tip-item">
-                    <span class="tip-icon">✅</span>
-                    <span class="tip-text">Your tax situation looks well optimized! No additional suggestions at this time.</span>
-                </div>
-            `;
+        if (!tipsObj || (!tipsObj.new.length && !tipsObj.old.length && !tipsObj.general.length)) {
+            container.innerHTML = `<div class="tip-item"><span class="tip-text">Your tax looks completely optimized!</span></div>`;
             return;
         }
 
-        container.innerHTML = tips.map(tip => `
-            <div class="tip-item">
-                <span class="tip-icon">${tip.icon}</span>
-                <div>
-                    <span class="tip-text">${tip.text}</span>
-                    ${tip.savings ? `<div style="margin-top: 6px;"><span class="tip-savings">${tip.savings}</span></div>` : ''}
+        const renderTipArray = (arr, title, colorPrimary, colorBg) => {
+            if (!arr || arr.length === 0) return '';
+            let out = `<div style="margin-bottom: 2rem;">
+                <h4 style="color: ${colorPrimary}; margin-bottom: 1rem; font-size: 1.05rem; border-bottom: 1px solid ${colorBg}; padding-bottom: 0.5rem; display:flex; justify-content:space-between;">
+                    ${title}
+                </h4>`;
+            out += arr.map(tip => `
+                <div class="tip-item">
+                    <span class="tip-icon">${tip.icon}</span>
+                    <div style="flex:1;">
+                        <span class="tip-text">${tip.text}</span>
+                        ${tip.savings ? `<div style="margin-top: 6px;"><span style="background: ${colorBg}; color: ${colorPrimary}; font-size: 0.75rem; padding: 2px 8px; border-radius: 4px; font-weight: 600;">⭐ ${tip.savings}</span></div>` : ''}
+                    </div>
                 </div>
-            </div>
-        `).join('');
+            `).join('');
+            out += `</div>`;
+            return out;
+        };
+
+        let html = '';
+        if (tipsObj.winner === 'new' || tipsObj.winner === 'tie') {
+            html += renderTipArray(tipsObj.new, '✨ How to save tax in the NEW Regime', 'var(--accent-secondary)', 'rgba(6, 214, 160, 0.15)');
+            html += renderTipArray(tipsObj.old, '🏛️ Maximize savings in the OLD Regime', 'var(--text-secondary)', 'var(--bg-glass-strong)');
+        } else {
+            html += renderTipArray(tipsObj.old, '🏛️ Maximize savings in the OLD Regime', 'var(--accent-primary-light)', 'rgba(108, 99, 255, 0.15)');
+            html += renderTipArray(tipsObj.new, '✨ How to save tax in the NEW Regime', 'var(--text-secondary)', 'var(--bg-glass-strong)');
+        }
+        html += renderTipArray(tipsObj.general, '💡 General Verified Insights', 'var(--accent-info)', 'rgba(78, 205, 196, 0.15)');
+        container.innerHTML = html;
     }
 
     // ──────────────────────────────────────────────────
@@ -522,7 +536,7 @@ function generatePDF(formResult, results, tips) {
         y = doc.lastAutoTable.finalY + 25;
 
         // ── SECTION 3: TAX SAVING TIPS ────────────────────────────────
-        if (tips && tips.length > 0) {
+        if (tips && (tips.new.length > 0 || tips.old.length > 0 || tips.general.length > 0)) {
             y = checkPage(y, 80);
             doc.setFillColor(108, 99, 255);
             doc.roundedRect(MARGIN, y, CONTENT_W, 24, 3, 3, 'F');
@@ -530,24 +544,45 @@ function generatePDF(formResult, results, tips) {
             doc.setFontSize(10);
             doc.setTextColor(255, 255, 255);
             doc.text('SECTION 3   PERSONALIZED TAX SAVING TIPS', MARGIN + 10, y + 16);
-            y += 32;
+            y += 36;
 
-            tips.forEach(function(t, i) {
-                y = checkPage(y, 30);
-                doc.setFillColor(108, 99, 255);
-                doc.circle(MARGIN + 8, y + 5, 8, 'F');
+            const renderTipGroup = function(arr, title, r, g, b) {
+                if (!arr || arr.length === 0) return;
+                y = checkPage(y, 40);
                 doc.setFont('helvetica', 'bold');
-                doc.setFontSize(8);
-                doc.setTextColor(255, 255, 255);
-                doc.text(String(i + 1), MARGIN + 8, y + 8, { align: 'center' });
-
-                doc.setFont('helvetica', 'normal');
                 doc.setFontSize(9.5);
-                doc.setTextColor(30, 30, 60);
-                const tipLines = doc.splitTextToSize(stripHTML(t.text), CONTENT_W - 28);
-                doc.text(tipLines, MARGIN + 22, y + 8);
-                y += tipLines.length * 13 + 10;
-            });
+                doc.setTextColor(r, g, b);
+                doc.text(title, MARGIN, y);
+                doc.setDrawColor(r, g, b);
+                doc.setLineWidth(0.5);
+                doc.line(MARGIN, y + 4, MARGIN + 180, y + 4);
+                y += 20;
+
+                arr.forEach(function(t) {
+                    y = checkPage(y, 30);
+                    doc.setFont('helvetica', 'bold');
+                    doc.setFontSize(10);
+                    doc.setTextColor(r, g, b);
+                    doc.text('>', MARGIN + 4, y + 2);
+
+                    doc.setFont('helvetica', 'normal');
+                    doc.setFontSize(9.5);
+                    doc.setTextColor(40, 40, 60);
+                    const tipLines = doc.splitTextToSize(stripHTML(t.text + (t.savings ? ' (=> ' + t.savings + ')' : '')), CONTENT_W - 24);
+                    doc.text(tipLines, MARGIN + 18, y + 2);
+                    y += tipLines.length * 13 + 12;
+                });
+            };
+
+            const w = tips.winner;
+            if (w === 'new' || w === 'tie') {
+                renderTipGroup(tips.new, 'NEW REGIME RECOMMENDATIONS', 6, 160, 110);
+                renderTipGroup(tips.old, 'OLD REGIME RECOMMENDATIONS', 108, 99, 255);
+            } else {
+                renderTipGroup(tips.old, 'OLD REGIME RECOMMENDATIONS', 108, 99, 255);
+                renderTipGroup(tips.new, 'NEW REGIME RECOMMENDATIONS', 6, 160, 110);
+            }
+            renderTipGroup(tips.general, 'GENERAL WEALTH INSIGHTS', 80, 80, 100);
 
             y += 10;
         }

@@ -615,70 +615,90 @@ const TaxEngine = (() => {
     // GENERATE TIPS
     // ──────────────────────────────────────────────────
 
-    function generateTips(inputs, results) {
-        const tips = [];
-        const oldTax = results.old.totalTaxLiability;
-        const newTax = results.new.totalTaxLiability;
+        function generateTips(inputs, results) {
+        const general = [];
+        const oldTips = [];
+        const newTips = [];
 
-        // Agricultural Income Check
-        if (num(inputs.agriculturalIncome) > 0) {
-            tips.push({
-                icon: '🌾',
-                text: `Agricultural income of <strong>₹${formatINR(num(inputs.agriculturalIncome))}</strong> is fully exempt from tax. However, because it exceeds ₹5,000, it has been appropriately used for rate calculation purposes (Partial Integration).`,
+        const salary = num(inputs.grossSalary);
+        const basic = num(inputs.basicSalary) || (salary * 0.4); // fallback if not provided
+        const rec = results.recommendation.winner;
+
+        // --- NEW REGIME TIPS ---
+        if (salary > 0) {
+            const current80CCD2 = num(inputs.section80CCD2);
+            const max80CCD2 = Math.round(basic * 0.14);
+            if (current80CCD2 < max80CCD2) {
+                newTips.push({
+                    icon: '💼',
+                    text: `<strong>Employer NPS (Sec 80CCD(2)):</strong> This is the <em>most powerful and only major</em> deduction available in the New Regime. Ask your employer to restructure your CTC to contribute up to 14% of your Basic Salary + DA (Approx. ₹${formatINR(max80CCD2)}) directly to NPS Tier-1. This is fully tax-exempt!`,
+                    savings: 'Top Recommendation'
+                });
+            } else {
+                 newTips.push({
+                    icon: '✅',
+                    text: `Excellent! You are maximizing the Employer NPS 80CCD(2) benefit under the new regime.`
+                });
+            }
+        }
+        
+        if (num(inputs.homeLoanInterest) > 0 && num(inputs.rentalIncome) === 0) {
+            newTips.push({
+                icon: '🏠',
+                text: `<strong>Home Loan Interest:</strong> The New Regime does NOT allow interest deduction for a self-occupied property. However, if you rent out the property, the interest becomes fully deductible against the rental income.`,
+            });
+        }
+
+        if (results.new.taxableIncome > 1200000 && results.new.taxableIncome < 1250000) {
+            newTips.push({
+                icon: '⚠️',
+                text: `<strong>Marginal Relief Zone:</strong> Your taxable income is just above the ₹12 Lakhs rebate threshold. If you can slightly increase Employer NPS to drop below ₹12 Lakhs, your tax drops to zero!`
             });
         }
         
-        // 44ADA Check
-        const hasBusinessIncome = inputs.hasBusinessIncome === 'yes';
-        const isPresumptive = inputs.presumptiveTax === 'yes';
-        if (hasBusinessIncome && isPresumptive && num(inputs.otherIncome) > 0) {
-            const receipts = num(inputs.otherIncome);
-            tips.push({
-                icon: '🧾',
-                text: `Since you opted for <strong>Presumptive Taxation (44ADA)</strong>, only 50% of your gross professional receipts (₹${formatINR(receipts)}) is treated as deemed taxable profit: ₹${formatINR(Math.round(receipts * 0.50))}.`,
+        if (salary > 0) {
+            newTips.push({
+               icon: '💡',
+               text: '<strong>Allowances & Perquisites:</strong> Work with HR to maximize exemptions for official travel, food coupons (Sodexo), and company-leased car programs which often remain exempt in the new regime as per verified IT rules.'
             });
         }
 
-        // 80C utilization
+        // --- OLD REGIME TIPS ---
         const used80C = num(inputs.section80C);
-        if (used80C < 150000 && results.recommendation.winner === 'old') {
-            const remaining = 150000 - used80C;
-            tips.push({
-                icon: '💰',
-                text: `You have <strong>₹${formatINR(remaining)}</strong> unused under Section 80C. Consider investing in ELSS, PPF, or LIC to reduce your Old Regime tax further.`,
-            });
+        if (used80C < 150000) {
+            oldTips.push({ icon: '💰', text: `<strong>Section 80C:</strong> You have ₹${formatINR(150000 - used80C)} unused limit. Invest in ELSS Mutual Funds, PPF, EPF, Life Insurance, or claim children's Tuition Fees to lower old regime tax.`});
         }
 
-        // 80D
         const used80D = num(inputs.section80D_self) + num(inputs.section80D_parents);
-        if (used80D === 0 && num(inputs.grossSalary) > 500000) {
-            tips.push({
-                icon: '🏥',
-                text: `You haven't claimed any <strong>health insurance premium</strong> under Section 80D. Self & parents' coverage can save up to ₹75,000 in deductions.`,
+        if (used80D < 75000) {
+            oldTips.push({ icon: '🏥', text: `<strong>Section 80D (Health Insurance):</strong> Protect your family and save tax. Claim up to ₹25,000 for self/spouse/children and an additional ₹50,000 for senior citizen parents.`});
+        }
+
+        if (num(inputs.section80CCD1B) === 0) {
+            oldTips.push({ icon: '🏦', text: `<strong>NPS Tier-1 (Sec 80CCD(1B)):</strong> You can invest an extra ₹50,000 in NPS to get an exclusive deduction over and above the ₹1.5L 80C limit.`});
+        }
+
+        if (num(inputs.homeLoanInterest) === 0 && num(inputs.rentPaid) === 0) {
+             oldTips.push({ icon: '��', text: `<strong>HRA / Home Loan (Sec 24b):</strong> If you pay rent, ensure you claim HRA. If planning to buy a house, you can claim up to ₹2 Lakhs per year on interest for a self-occupied property in the Old regime.`});
+        }
+
+        // --- GENERAL TIPS ---
+        if (num(inputs.agriculturalIncome) > 5000) {
+            general.push({
+                icon: '🌾',
+                text: `Your agricultural income of ₹${formatINR(num(inputs.agriculturalIncome))} is exempt but considered for 'Partial Integration' to calculate the tax rate on your other income.`
+            });
+        }
+        if (inputs.hasBusinessIncome === 'yes' && inputs.presumptiveTax === 'yes') {
+            general.push({
+                icon: '🧾',
+                text: `<strong>Presumptive Taxation (Sec 44ADA):</strong> As a professional, offering 50% of your gross receipts as taxable profit is highly tax-efficient and avoids bookkeeping.`
             });
         }
 
-        // Marginal Relief 87A Check
-        if (results.new.marginalReliefApplied) {
-            tips.push({
-                icon: '⚠️',
-                text: `<strong>Cliff Effect Warning:</strong> Your taxable income just crossed the ₹7,00,000 rebate threshold in the New Regime, triggering tax. <em>Marginal relief</em> was applied to cap your tax liability. Consider minor deductions or adjustments to stay under ₹7,00,000.`,
-            });
-        }
-
-        // NPS 80CCD(1B)
-        if (!inputs.section80CCD1B && results.recommendation.winner === 'old') {
-            tips.push({
-                icon: '🏦',
-                text: `Consider NPS (80CCD(1B)) for an <strong>additional ₹50,000</strong> deduction over 80C. This is one of the most effective tax-saving tools.`,
-            });
-        }
-
-        return tips;
+        return { general, old: oldTips, new: newTips, winner: rec };
     }
 
-    // ──────────────────────────────────────────────────
-    // UTILITY
     // ──────────────────────────────────────────────────
 
     function formatINR(amount) {
