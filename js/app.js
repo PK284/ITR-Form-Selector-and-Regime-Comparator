@@ -164,9 +164,12 @@
     // We remove the on-the-fly comma formatting since inputs are now type="number".
     // We just ensure no negative numbers are kept.
     
-    function filterNegativeInput(input) {
-        if (Number(input.value) < 0) {
-            input.value = 0;
+    function formatCurrencyInput(input) {
+        let val = input.value.replace(/[^0-9]/g, '');
+        if (val) {
+            input.value = Number(val).toLocaleString('en-IN');
+        } else {
+            input.value = '';
         }
     }
 
@@ -357,9 +360,9 @@
             });
         });
 
-        document.querySelectorAll('input[type="number"]').forEach(input => {
+        document.querySelectorAll('input[inputmode="numeric"]').forEach(input => {
             input.addEventListener('input', function () {
-                filterNegativeInput(this);
+                formatCurrencyInput(this);
             });
         });
         
