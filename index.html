@@ -1,0 +1,682 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ITR Form Selector & Regime Comparator | FY 2025-26</title>
+    <meta name="description" content="Free ITR Form Selector and Old vs New Tax Regime Comparator for FY 2025-26 (AY 2026-27). Find the right ITR form and calculate your tax savings instantly.">
+    <meta name="keywords" content="ITR form selector, tax regime comparator, old vs new regime, income tax India, FY 2025-26, tax calculator">
+    <meta name="author" content="TaxSense India">
+    <meta name="robots" content="index, follow">
+    <meta property="og:title" content="ITR Form Selector & Regime Comparator | FY 2025-26">
+    <meta property="og:description" content="Find the right ITR form and compare Old vs New tax regime savings instantly. 100% free, no data stored.">
+    <meta property="og:type" content="website">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="css/animations.css">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧾</text></svg>">
+</head>
+<body>
+    <!-- Privacy Badge -->
+    <div class="privacy-badge" id="privacyBadge">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+            <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+        </svg>
+        <span>100% Private — Nothing Stored</span>
+    </div>
+
+    <!-- Hero / Landing Section -->
+    <section class="hero" id="heroSection">
+        <div class="hero-bg-effects">
+            <div class="hero-orb hero-orb-1"></div>
+            <div class="hero-orb hero-orb-2"></div>
+            <div class="hero-orb hero-orb-3"></div>
+            <div class="grid-bg"></div>
+        </div>
+        <div class="hero-content">
+            <div class="hero-badge">
+                <span class="badge-dot"></span>
+                FY 2025-26 • AY 2026-27
+            </div>
+            <h1 class="hero-title">
+                <span class="hero-title-line">Stop Guessing.</span>
+                <span class="hero-title-line gradient-text">Start Saving.</span>
+            </h1>
+            <p class="hero-subtitle">
+                Find the right ITR form and discover which tax regime saves you more — 
+                in under 2 minutes. <strong>100% free. Zero data stored.</strong>
+            </p>
+            <div class="hero-stats">
+                <div class="stat-item">
+                    <span class="stat-number" data-count="4">0</span>
+                    <span class="stat-label">ITR Forms Covered</span>
+                </div>
+                <div class="stat-divider"></div>
+                <div class="stat-item">
+                    <span class="stat-number" data-count="2">0</span>
+                    <span class="stat-label">Regimes Compared</span>
+                </div>
+                <div class="stat-divider"></div>
+                <div class="stat-item">
+                    <span class="stat-number">0s</span>
+                    <span class="stat-label">Data Retention</span>
+                </div>
+            </div>
+            <button class="cta-button" id="startButton" onclick="startCalculator()">
+                <span>Calculate My Tax</span>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                    <polyline points="12 5 19 12 12 19"></polyline>
+                </svg>
+            </button>
+            <p class="hero-disclaimer">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <line x1="12" y1="16" x2="12" y2="12"></line>
+                    <line x1="12" y1="8" x2="12.01" y2="8"></line>
+                </svg>
+                For informational purposes only. Consult a CA for professional advice.
+            </p>
+        </div>
+    </section>
+
+    <!-- Main Calculator App -->
+    <main class="calculator-app" id="calculatorApp">
+        <!-- Progress Bar -->
+        <div class="progress-container">
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
+            <div class="progress-steps">
+                <div class="progress-step active" data-step="1">
+                    <div class="step-circle">1</div>
+                    <span class="step-label">Basic Info</span>
+                </div>
+                <div class="progress-step" data-step="2">
+                    <div class="step-circle">2</div>
+                    <span class="step-label">Income</span>
+                </div>
+                <div class="progress-step" data-step="3">
+                    <div class="step-circle">3</div>
+                    <span class="step-label">Deductions</span>
+                </div>
+                <div class="progress-step" data-step="4">
+                    <div class="step-circle">4</div>
+                    <span class="step-label">Results</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Step 1: Basic Info -->
+        <div class="step-panel active" id="step1">
+            <div class="step-header">
+                <div class="step-icon">👤</div>
+                <h2>Tell us about yourself</h2>
+                <p>Basic details to determine the right ITR form for you</p>
+            </div>
+            <div class="form-grid">
+                <div class="form-group">
+                    <label for="ageGroup">Age Group</label>
+                    <div class="select-wrapper">
+                        <select id="ageGroup">
+                            <option value="below60">Below 60 years</option>
+                            <option value="senior">60 - 80 years (Senior Citizen)</option>
+                            <option value="superSenior">Above 80 years (Super Senior)</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="residencyStatus">Residency Status</label>
+                    <div class="select-wrapper">
+                        <select id="residencyStatus">
+                            <option value="resident">Resident Indian</option>
+                            <option value="nri">Non-Resident (NRI)</option>
+                            <option value="rnor">Resident but Not Ordinarily Resident (RNOR)</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="taxpayerType">Taxpayer Type</label>
+                    <div class="select-wrapper">
+                        <select id="taxpayerType">
+                            <option value="individual">Individual</option>
+                            <option value="huf">Hindu Undivided Family (HUF)</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="hasBusinessIncome">Do you have Business/Profession income?</label>
+                    <div class="toggle-group">
+                        <button class="toggle-btn active" data-value="no" onclick="toggleOption(this, 'hasBusinessIncome')">No</button>
+                        <button class="toggle-btn" data-value="yes" onclick="toggleOption(this, 'hasBusinessIncome')">Yes</button>
+                    </div>
+                    <input type="hidden" id="hasBusinessIncome" value="no">
+                </div>
+                <div class="form-group conditional" id="presumptiveGroup" style="display:none;">
+                    <label for="presumptiveTax">Are you under Presumptive Taxation (44AD/44ADA/44AE)?</label>
+                    <div class="toggle-group">
+                        <button class="toggle-btn active" data-value="no" onclick="toggleOption(this, 'presumptiveTax')">No</button>
+                        <button class="toggle-btn" data-value="yes" onclick="toggleOption(this, 'presumptiveTax')">Yes</button>
+                    </div>
+                    <input type="hidden" id="presumptiveTax" value="no">
+                </div>
+                <div class="form-group">
+                    <label for="isDirector">Are you a Director in any company?</label>
+                    <div class="toggle-group">
+                        <button class="toggle-btn active" data-value="no" onclick="toggleOption(this, 'isDirector')">No</button>
+                        <button class="toggle-btn" data-value="yes" onclick="toggleOption(this, 'isDirector')">Yes</button>
+                    </div>
+                    <input type="hidden" id="isDirector" value="no">
+                </div>
+                <div class="form-group">
+                    <label for="hasUnlistedShares">Do you hold unlisted equity shares?</label>
+                    <div class="toggle-group">
+                        <button class="toggle-btn active" data-value="no" onclick="toggleOption(this, 'hasUnlistedShares')">No</button>
+                        <button class="toggle-btn" data-value="yes" onclick="toggleOption(this, 'hasUnlistedShares')">Yes</button>
+                    </div>
+                    <input type="hidden" id="hasUnlistedShares" value="no">
+                </div>
+                <div class="form-group">
+                    <label for="hasForeignAssets">Do you have foreign assets / foreign income?</label>
+                    <div class="toggle-group">
+                        <button class="toggle-btn active" data-value="no" onclick="toggleOption(this, 'hasForeignAssets')">No</button>
+                        <button class="toggle-btn" data-value="yes" onclick="toggleOption(this, 'hasForeignAssets')">Yes</button>
+                    </div>
+                    <input type="hidden" id="hasForeignAssets" value="no">
+                </div>
+            </div>
+            <div class="step-actions">
+                <button class="btn-secondary" onclick="goToHero()">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="19" y1="12" x2="5" y2="12"></line>
+                        <polyline points="12 19 5 12 12 5"></polyline>
+                    </svg>
+                    Back
+                </button>
+                <button class="btn-primary" onclick="nextStep(2)">
+                    Continue
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="5" y1="12" x2="19" y2="12"></line>
+                        <polyline points="12 5 19 12 12 19"></polyline>
+                    </svg>
+                </button>
+            </div>
+        </div>
+
+        <!-- Step 2: Income Details -->
+        <div class="step-panel" id="step2">
+            <div class="step-header">
+                <div class="step-icon">💰</div>
+                <h2>Your Income Sources</h2>
+                <p>Enter your income details for FY 2025-26. Leave blank if not applicable.</p>
+            </div>
+            <div class="form-grid">
+                <!-- Salary -->
+                <div class="form-section">
+                    <h3 class="section-title">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect>
+                            <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path>
+                        </svg>
+                        Salary / Pension Income
+                    </h3>
+                    <div class="form-group">
+                        <label for="grossSalary">Gross Salary (Annual) <span class="hint">Basic + DA + HRA + Allowances</span></label>
+                        <div class="input-wrapper">
+                            <span class="input-prefix">₹</span>
+                            <input type="text" id="grossSalary" placeholder="0" oninput="formatCurrency(this)">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="basicSalary">Basic Salary + DA (Annual) <span class="hint">For HRA calculation</span></label>
+                        <div class="input-wrapper">
+                            <span class="input-prefix">₹</span>
+                            <input type="text" id="basicSalary" placeholder="0" oninput="formatCurrency(this)">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="hraReceived">HRA Received (Annual)</label>
+                        <div class="input-wrapper">
+                            <span class="input-prefix">₹</span>
+                            <input type="text" id="hraReceived" placeholder="0" oninput="formatCurrency(this)">
+                        </div>
+                    </div>
+                    <div class="form-group" id="hraRentGroup">
+                        <label for="rentPaid">Rent Paid (Annual) <span class="hint">If claiming HRA</span></label>
+                        <div class="input-wrapper">
+                            <span class="input-prefix">₹</span>
+                            <input type="text" id="rentPaid" placeholder="0" oninput="formatCurrency(this)">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="isMetroCity">City of Residence</label>
+                        <div class="toggle-group">
+                            <button class="toggle-btn active" data-value="no" onclick="toggleOption(this, 'isMetroCity')">Non-Metro</button>
+                            <button class="toggle-btn" data-value="yes" onclick="toggleOption(this, 'isMetroCity')">Metro (Delhi/Mumbai/Kolkata/Chennai)</button>
+                        </div>
+                        <input type="hidden" id="isMetroCity" value="no">
+                    </div>
+                </div>
+
+                <!-- House Property -->
+                <div class="form-section">
+                    <h3 class="section-title">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+                            <polyline points="9 22 9 12 15 12 15 22"></polyline>
+                        </svg>
+                        House Property Income
+                    </h3>
+                    <div class="form-group">
+                        <label for="rentalIncome">Gross Rental Income (Annual) <span class="hint">From let-out property</span></label>
+                        <div class="input-wrapper">
+                            <span class="input-prefix">₹</span>
+                            <input type="text" id="rentalIncome" placeholder="0" oninput="formatCurrency(this)">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="propertyTax">Municipal Tax Paid (Annual)</label>
+                        <div class="input-wrapper">
+                            <span class="input-prefix">₹</span>
+                            <input type="text" id="propertyTax" placeholder="0" oninput="formatCurrency(this)">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="homeLoanInterest">Home Loan Interest Paid (Annual) <span class="hint">Self-occupied / Let-out</span></label>
+                        <div class="input-wrapper">
+                            <span class="input-prefix">₹</span>
+                            <input type="text" id="homeLoanInterest" placeholder="0" oninput="formatCurrency(this)">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="numProperties">Number of House Properties owned</label>
+                        <div class="select-wrapper">
+                            <select id="numProperties">
+                                <option value="0">None</option>
+                                <option value="1">1</option>
+                                <option value="2">2</option>
+                                <option value="3">More than 2</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Capital Gains -->
+                <div class="form-section">
+                    <h3 class="section-title">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="22 7 13.5 15.5 8.5 10.5 2 17"></polyline>
+                            <polyline points="16 7 22 7 22 13"></polyline>
+                        </svg>
+                        Capital Gains
+                    </h3>
+                    <div class="form-group">
+                        <label for="stcg15">STCG (Section 111A) <span class="hint">Listed equity & equity MFs — taxed at 15%</span></label>
+                        <div class="input-wrapper">
+                            <span class="input-prefix">₹</span>
+                            <input type="text" id="stcg15" placeholder="0" oninput="formatCurrency(this)">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="stcgOther">STCG (Other) <span class="hint">Debt funds, gold, property etc — taxed at slab rate</span></label>
+                        <div class="input-wrapper">
+                            <span class="input-prefix">₹</span>
+                            <input type="text" id="stcgOther" placeholder="0" oninput="formatCurrency(this)">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="ltcg10">LTCG (Section 112A) <span class="hint">Listed equity & equity MFs — taxed at 10% above ₹1.25L</span></label>
+                        <div class="input-wrapper">
+                            <span class="input-prefix">₹</span>
+                            <input type="text" id="ltcg10" placeholder="0" oninput="formatCurrency(this)">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="ltcg20">LTCG (Other) <span class="hint">Property, gold, debt MFs — taxed at 20% with indexation</span></label>
+                        <div class="input-wrapper">
+                            <span class="input-prefix">₹</span>
+                            <input type="text" id="ltcg20" placeholder="0" oninput="formatCurrency(this)">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Other Income -->
+                <div class="form-section">
+                    <h3 class="section-title">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="12" y1="1" x2="12" y2="23"></line>
+                            <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+                        </svg>
+                        Other Income
+                    </h3>
+                    <div class="form-group">
+                        <label for="interestIncome">Interest Income <span class="hint">Savings account, FD, RD etc.</span></label>
+                        <div class="input-wrapper">
+                            <span class="input-prefix">₹</span>
+                            <input type="text" id="interestIncome" placeholder="0" oninput="formatCurrency(this)">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="dividendIncome">Dividend Income</label>
+                        <div class="input-wrapper">
+                            <span class="input-prefix">₹</span>
+                            <input type="text" id="dividendIncome" placeholder="0" oninput="formatCurrency(this)">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="otherIncome">Any Other Income <span class="hint">Freelance, gifts, etc.</span></label>
+                        <div class="input-wrapper">
+                            <span class="input-prefix">₹</span>
+                            <input type="text" id="otherIncome" placeholder="0" oninput="formatCurrency(this)">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="agriculturalIncome">Agricultural Income</label>
+                        <div class="input-wrapper">
+                            <span class="input-prefix">₹</span>
+                            <input type="text" id="agriculturalIncome" placeholder="0" oninput="formatCurrency(this)">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="step-actions">
+                <button class="btn-secondary" onclick="prevStep(1)">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="19" y1="12" x2="5" y2="12"></line>
+                        <polyline points="12 19 5 12 12 5"></polyline>
+                    </svg>
+                    Back
+                </button>
+                <button class="btn-primary" onclick="nextStep(3)">
+                    Continue
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="5" y1="12" x2="19" y2="12"></line>
+                        <polyline points="12 5 19 12 12 19"></polyline>
+                    </svg>
+                </button>
+            </div>
+        </div>
+
+        <!-- Step 3: Deductions -->
+        <div class="step-panel" id="step3">
+            <div class="step-header">
+                <div class="step-icon">🛡️</div>
+                <h2>Tax Saving Investments & Deductions</h2>
+                <p>These deductions apply primarily under the <strong>Old Tax Regime</strong>. Enter actual/planned investments.</p>
+            </div>
+            <div class="regime-note">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <line x1="12" y1="16" x2="12" y2="12"></line>
+                    <line x1="12" y1="8" x2="12.01" y2="8"></line>
+                </svg>
+                <span>Most deductions below are <strong>NOT available</strong> under the New Tax Regime. We'll compare both for you.</span>
+            </div>
+            <div class="form-grid">
+                <!-- 80C -->
+                <div class="form-section">
+                    <h3 class="section-title">
+                        <span class="section-badge">80C</span>
+                        Investments — Max ₹1,50,000
+                    </h3>
+                    <p class="section-hint">PPF, ELSS, LIC, EPF (employee share), NSC, Sukanya, Tuition fees, Home Loan Principal</p>
+                    <div class="form-group">
+                        <label for="section80C">Total Section 80C Investments</label>
+                        <div class="input-wrapper">
+                            <span class="input-prefix">₹</span>
+                            <input type="text" id="section80C" placeholder="0" oninput="formatCurrency(this)" data-max="150000">
+                        </div>
+                        <div class="input-limit">Max: ₹1,50,000</div>
+                    </div>
+                </div>
+
+                <!-- 80CCD(1B) -->
+                <div class="form-section">
+                    <h3 class="section-title">
+                        <span class="section-badge">80CCD(1B)</span>
+                        NPS Additional — Max ₹50,000
+                    </h3>
+                    <div class="form-group">
+                        <label for="section80CCD1B">NPS Contribution (Additional)</label>
+                        <div class="input-wrapper">
+                            <span class="input-prefix">₹</span>
+                            <input type="text" id="section80CCD1B" placeholder="0" oninput="formatCurrency(this)" data-max="50000">
+                        </div>
+                        <div class="input-limit">Max: ₹50,000 (over and above 80C)</div>
+                    </div>
+                </div>
+
+                <!-- 80CCD(2) -->
+                <div class="form-section">
+                    <h3 class="section-title">
+                        <span class="section-badge">80CCD(2)</span>
+                        Employer NPS Contribution
+                    </h3>
+                    <p class="section-hint">Available in <strong>BOTH</strong> Old and New regimes. Up to 10% of Basic + DA (14% for central govt).</p>
+                    <div class="form-group">
+                        <label for="section80CCD2">Employer's NPS Contribution (Annual)</label>
+                        <div class="input-wrapper">
+                            <span class="input-prefix">₹</span>
+                            <input type="text" id="section80CCD2" placeholder="0" oninput="formatCurrency(this)">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 80D -->
+                <div class="form-section">
+                    <h3 class="section-title">
+                        <span class="section-badge">80D</span>
+                        Health Insurance Premiums
+                    </h3>
+                    <div class="form-group">
+                        <label for="section80D_self">Self & Family Premium <span class="hint">Max ₹25,000 (₹50,000 if senior)</span></label>
+                        <div class="input-wrapper">
+                            <span class="input-prefix">₹</span>
+                            <input type="text" id="section80D_self" placeholder="0" oninput="formatCurrency(this)" data-max="25000">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="section80D_parents">Parents' Premium <span class="hint">Max ₹25,000 (₹50,000 if senior parent)</span></label>
+                        <div class="input-wrapper">
+                            <span class="input-prefix">₹</span>
+                            <input type="text" id="section80D_parents" placeholder="0" oninput="formatCurrency(this)" data-max="50000">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="preventiveHealth">Preventive Health Check-up <span class="hint">Included in 80D limit, max ₹5,000</span></label>
+                        <div class="input-wrapper">
+                            <span class="input-prefix">₹</span>
+                            <input type="text" id="preventiveHealth" placeholder="0" oninput="formatCurrency(this)" data-max="5000">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 80E -->
+                <div class="form-section">
+                    <h3 class="section-title">
+                        <span class="section-badge">80E</span>
+                        Education Loan Interest
+                    </h3>
+                    <div class="form-group">
+                        <label for="section80E">Interest Paid on Education Loan <span class="hint">No upper limit</span></label>
+                        <div class="input-wrapper">
+                            <span class="input-prefix">₹</span>
+                            <input type="text" id="section80E" placeholder="0" oninput="formatCurrency(this)">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 80G -->
+                <div class="form-section">
+                    <h3 class="section-title">
+                        <span class="section-badge">80G</span>
+                        Donations
+                    </h3>
+                    <div class="form-group">
+                        <label for="section80G">Donations (Eligible for deduction)</label>
+                        <div class="input-wrapper">
+                            <span class="input-prefix">₹</span>
+                            <input type="text" id="section80G" placeholder="0" oninput="formatCurrency(this)">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 80TTA -->
+                <div class="form-section">
+                    <h3 class="section-title">
+                        <span class="section-badge">80TTA</span>
+                        Savings Account Interest
+                    </h3>
+                    <div class="form-group">
+                        <label for="section80TTA">Savings Account Interest <span class="hint">Max ₹10,000 (₹50,000 for seniors under 80TTB)</span></label>
+                        <div class="input-wrapper">
+                            <span class="input-prefix">₹</span>
+                            <input type="text" id="section80TTA" placeholder="0" oninput="formatCurrency(this)" data-max="10000">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Home Loan -->
+                <div class="form-section">
+                    <h3 class="section-title">
+                        <span class="section-badge">24(b)</span>
+                        Home Loan Interest (Self-occupied)
+                    </h3>
+                    <p class="section-hint">Already captured in Income section. Max ₹2,00,000 for self-occupied property under Old Regime.</p>
+                </div>
+            </div>
+            <div class="step-actions">
+                <button class="btn-secondary" onclick="prevStep(2)">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="19" y1="12" x2="5" y2="12"></line>
+                        <polyline points="12 19 5 12 12 5"></polyline>
+                    </svg>
+                    Back
+                </button>
+                <button class="btn-primary btn-calculate" onclick="calculateAndShowResults()">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="4" y="2" width="16" height="20" rx="2" ry="2"></rect>
+                        <line x1="8" y1="6" x2="16" y2="6"></line>
+                        <line x1="8" y1="10" x2="16" y2="10"></line>
+                        <line x1="8" y1="14" x2="12" y2="14"></line>
+                    </svg>
+                    Calculate & Compare
+                </button>
+            </div>
+        </div>
+
+        <!-- Step 4: Results -->
+        <div class="step-panel" id="step4">
+            <div class="step-header">
+                <div class="step-icon">📊</div>
+                <h2>Your Tax Analysis</h2>
+                <p>Based on your inputs for FY 2025-26 (AY 2026-27)</p>
+            </div>
+
+            <!-- ITR Form Recommendation -->
+            <div class="result-card itr-card" id="itrFormCard">
+                <div class="result-card-header">
+                    <h3>📋 Recommended ITR Form</h3>
+                </div>
+                <div class="itr-result" id="itrResult">
+                    <!-- Filled by JS -->
+                </div>
+            </div>
+
+            <!-- Regime Comparison -->
+            <div class="result-card comparison-card">
+                <div class="result-card-header">
+                    <h3>⚖️ Old Regime vs New Regime</h3>
+                    <div class="winner-badge" id="winnerBadge">
+                        <!-- Filled by JS -->
+                    </div>
+                </div>
+                <div class="comparison-grid" id="comparisonGrid">
+                    <!-- Filled by JS -->
+                </div>
+            </div>
+
+            <!-- Detailed Breakdown -->
+            <div class="result-card breakdown-card">
+                <div class="result-card-header">
+                    <h3>📑 Detailed Tax Breakdown</h3>
+                    <div class="breakdown-toggle">
+                        <button class="breakdown-tab active" onclick="switchBreakdownTab('old', this)">Old Regime</button>
+                        <button class="breakdown-tab" onclick="switchBreakdownTab('new', this)">New Regime</button>
+                    </div>
+                </div>
+                <div class="breakdown-content" id="breakdownOld">
+                    <!-- Filled by JS -->
+                </div>
+                <div class="breakdown-content" id="breakdownNew" style="display:none;">
+                    <!-- Filled by JS -->
+                </div>
+            </div>
+
+            <!-- Tax Saving Tips -->
+            <div class="result-card tips-card" id="tipsCard">
+                <div class="result-card-header">
+                    <h3>💡 Personalized Tax Saving Tips</h3>
+                </div>
+                <div class="tips-content" id="tipsContent">
+                    <!-- Filled by JS -->
+                </div>
+            </div>
+
+            <!-- Actions -->
+            <div class="result-actions">
+                <button class="btn-secondary" onclick="prevStep(3)">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="19" y1="12" x2="5" y2="12"></line>
+                        <polyline points="12 19 5 12 12 5"></polyline>
+                    </svg>
+                    Modify Inputs
+                </button>
+                <button class="btn-primary" onclick="downloadReport()">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                        <polyline points="7 10 12 15 17 10"></polyline>
+                        <line x1="12" y1="15" x2="12" y2="3"></line>
+                    </svg>
+                    Download Report (PDF)
+                </button>
+                <button class="btn-ghost" onclick="startOver()">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="1 4 1 10 7 10"></polyline>
+                        <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path>
+                    </svg>
+                    Start Over
+                </button>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer" id="footer">
+        <div class="footer-content">
+            <div class="footer-disclaimer">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                    <line x1="12" y1="9" x2="12" y2="13"></line>
+                    <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                </svg>
+                <p><strong>Disclaimer:</strong> This tool is for informational and educational purposes only. It does not constitute financial or tax advice. 
+                Tax laws are subject to change. Please consult a qualified Chartered Accountant before filing your ITR. 
+                No data is collected, stored, or transmitted — all calculations happen in your browser.</p>
+            </div>
+            <div class="footer-bottom">
+                <p>Built with ❤️ for Indian Taxpayers • FY 2025-26 (AY 2026-27)</p>
+                <p class="footer-tech">Powered by pure client-side JavaScript • Zero backend • Zero tracking</p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="js/taxEngine.js"></script>
+    <script src="js/formSelector.js"></script>
+    <script src="js/uiController.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>

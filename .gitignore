@@ -1,0 +1,15 @@
+# Byte-compiled / optimized
+__pycache__/
+*.py[cod]
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# Node (if any tooling is added later)
+node_modules/
