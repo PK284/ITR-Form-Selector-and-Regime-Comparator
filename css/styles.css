@@ -712,6 +712,12 @@ body {
     align-items: center;
     justify-content: center;
     line-height: 1.3;
+    white-space: normal;
+    word-break: break-word;
+    height: auto;
+    min-height: 44px;
+    box-sizing: border-box;
+    overflow: visible;
 }
 
 .toggle-btn:hover {
@@ -1458,7 +1464,7 @@ input, select {
 }
 
 /* Minimum 44px touch targets */
-.toggle-btn, .select-wrapper select, .input-wrapper input, .breakdown-tab {
+.select-wrapper select, .input-wrapper input, .breakdown-tab {
     min-height: 44px;
 }
 
