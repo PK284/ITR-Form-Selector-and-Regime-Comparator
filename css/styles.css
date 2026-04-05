@@ -1521,3 +1521,228 @@ input, select {
         justify-content: space-between;
     }
 }
+
+/* ================================================================
+   UI POLISH UPGRADES — Aesthetic Premium Enhancements
+   ================================================================ */
+
+/* Better form-section cards with animated border on hover */
+.form-section {
+    background: var(--bg-card);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-lg);
+    padding: var(--space-xl);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+}
+
+.form-section::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: var(--radius-lg);
+    padding: 1.5px;
+    background: linear-gradient(135deg, rgba(108, 99, 255, 0), rgba(108, 99, 255, 0));
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    transition: all 0.3s ease;
+    pointer-events: none;
+}
+
+.form-section:hover::before {
+    background: linear-gradient(135deg, rgba(108, 99, 255, 0.5), rgba(6, 214, 160, 0.3));
+}
+
+.form-section:hover {
+    border-color: transparent;
+    background: var(--bg-card-hover);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 32px rgba(108, 99, 255, 0.12);
+}
+
+/* Glow on input focus */
+.input-wrapper input:focus {
+    border-color: var(--accent-primary);
+    box-shadow: 0 0 0 3px rgba(108, 99, 255, 0.15), 0 0 0 1px rgba(108, 99, 255, 0.4);
+    background: rgba(108, 99, 255, 0.06);
+}
+
+/* Active toggle-btn glow */
+.toggle-btn.active {
+    background: rgba(108, 99, 255, 0.18);
+    border-color: var(--accent-primary);
+    color: var(--accent-primary-light);
+    box-shadow: 0 0 16px rgba(108, 99, 255, 0.2);
+}
+
+/* Better hero badge animation */
+.hero-badge {
+    animation: fadeInDown 0.6s ease-out both;
+}
+
+.hero-title {
+    animation: fadeInUp 0.7s 0.1s ease-out both;
+}
+
+.hero-subtitle {
+    animation: fadeInUp 0.7s 0.2s ease-out both;
+}
+
+.hero-stats {
+    animation: fadeInUp 0.7s 0.3s ease-out both;
+}
+
+.cta-button {
+    animation: fadeInUp 0.7s 0.4s ease-out both;
+}
+
+/* Stat numbers — larger gradient */
+.stat-number {
+    font-size: 2.4rem;
+    background: var(--gradient-primary);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+/* Result card entrance animation */
+.result-card {
+    animation: slideInCard 0.5s ease-out both;
+}
+
+.result-card:nth-child(2) { animation-delay: 0.1s; }
+.result-card:nth-child(3) { animation-delay: 0.2s; }
+.result-card:nth-child(4) { animation-delay: 0.3s; }
+
+@keyframes slideInCard {
+    from { opacity: 0; transform: translateY(20px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeInDown {
+    from { opacity: 0; transform: translateY(-12px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+/* section-title icon */
+.section-title svg {
+    color: var(--accent-primary-light);
+    opacity: 0.85;
+}
+
+/* Better comparison winner column */
+.comparison-column.winner {
+    border-color: rgba(6, 214, 160, 0.4);
+    background: linear-gradient(145deg, rgba(6, 214, 160, 0.06), rgba(78, 205, 196, 0.03));
+    box-shadow: 0 4px 24px rgba(6, 214, 160, 0.12), inset 0 0 0 1px rgba(6, 214, 160, 0.15);
+}
+
+/* tips card items */
+.tip-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+    padding: 0.9rem 1rem;
+    border-radius: var(--radius-md);
+    background: rgba(255,255,255,0.03);
+    border: 1px solid var(--border-subtle);
+    margin-bottom: 0.75rem;
+    transition: var(--transition-base);
+}
+
+.tip-item:hover {
+    background: rgba(108, 99, 255, 0.06);
+    border-color: rgba(108, 99, 255, 0.2);
+    transform: translateX(4px);
+}
+
+.tip-icon {
+    font-size: 1.4rem;
+    flex-shrink: 0;
+    margin-top: 2px;
+}
+
+/* better progress step label */
+.step-label {
+    font-weight: 600;
+    letter-spacing: 0.01em;
+}
+
+/* Smoother form-group transitions */
+.form-group {
+    transition: opacity 0.2s ease;
+}
+
+/* Input animated placeholder */
+.input-wrapper input {
+    transition: border-color 0.25s ease, box-shadow 0.25s ease, background 0.25s ease;
+}
+
+/* Better scrollbar */
+::-webkit-scrollbar-thumb {
+    background: rgba(108, 99, 255, 0.3);
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: rgba(108, 99, 255, 0.5);
+}
+
+/* btn-primary shimmer effect */
+.btn-primary {
+    position: relative;
+    overflow: hidden;
+}
+
+.btn-primary::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 60%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent);
+    transform: skewX(-20deg);
+    transition: none;
+}
+
+.btn-primary:hover::after {
+    left: 150%;
+    transition: left 0.55s ease;
+}
+
+/* Hero background subtle noise pattern */
+.hero::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0.3;
+}
+
+/* Winner badge pulse */
+.winner-badge.new-wins, .winner-badge.old-wins {
+    animation: pulseWin 2.5s ease-in-out infinite;
+}
+
+@keyframes pulseWin {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(6, 214, 160, 0.3); }
+    50% { box-shadow: 0 0 0 8px rgba(6, 214, 160, 0); }
+}
+
+/* Section badge glow */
+.section-badge {
+    box-shadow: 0 0 12px rgba(108, 99, 255, 0.2);
+}
+
+/* Comparison column amount number */
+.comparison-column.winner .comparison-column-amount {
+    background: var(--gradient-secondary);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
