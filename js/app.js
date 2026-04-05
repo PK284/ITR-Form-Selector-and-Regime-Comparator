@@ -1,6 +1,7 @@
 /**
  * ============================================================
  * APP CONTROLLER — Main application logic & event handlers
+ * All events wired via addEventListener (CSP-compliant, no inline handlers)
  * ============================================================
  */
 
@@ -20,109 +21,68 @@
     // HERO & NAVIGATION
     // ──────────────────────────────────────────────────
 
-    window.startCalculator = function () {
-        const hero = document.getElementById('heroSection');
-        const app = document.getElementById('calculatorApp');
-        const footer = document.getElementById('footer');
-
-        hero.style.display = 'none';
-        app.classList.add('visible');
-        footer.style.display = 'block';
-
+    function startCalculator() {
+        document.getElementById('heroSection').style.display = 'none';
+        document.getElementById('calculatorApp').classList.add('visible');
+        document.getElementById('footer').style.display = 'block';
         currentStep = 1;
         updateProgressBar();
         window.scrollTo({ top: 0, behavior: 'smooth' });
-    };
+    }
 
-    window.goToHero = function () {
-        const hero = document.getElementById('heroSection');
-        const app = document.getElementById('calculatorApp');
-        const footer = document.getElementById('footer');
-
-        hero.style.display = 'flex';
-        app.classList.remove('visible');
-        footer.style.display = 'none';
+    function goToHero() {
+        document.getElementById('heroSection').style.display = 'flex';
+        document.getElementById('calculatorApp').classList.remove('visible');
+        document.getElementById('footer').style.display = 'none';
         window.scrollTo({ top: 0, behavior: 'smooth' });
-    };
+    }
 
-    window.startOver = function () {
-        // Clear all inputs
+    function startOver() {
         document.querySelectorAll('input[type="text"]').forEach(input => {
             input.value = '';
         });
-
         document.querySelectorAll('select').forEach(select => {
             select.selectedIndex = 0;
         });
-
-        // Reset toggles
         document.querySelectorAll('.toggle-group').forEach(group => {
-            const buttons = group.querySelectorAll('.toggle-btn');
-            buttons.forEach((btn, i) => {
+            group.querySelectorAll('.toggle-btn').forEach((btn, i) => {
                 btn.classList.toggle('active', i === 0);
             });
         });
-
         document.querySelectorAll('input[type="hidden"]').forEach(input => {
-            if (input.id === 'isMetroCity' || input.id === 'hasBusinessIncome' ||
-                input.id === 'isDirector' || input.id === 'hasUnlistedShares' ||
-                input.id === 'hasForeignAssets' || input.id === 'presumptiveTax') {
-                input.value = 'no';
-            }
+            const resetIds = ['isMetroCity', 'hasBusinessIncome', 'isDirector', 'hasUnlistedShares', 'hasForeignAssets', 'presumptiveTax'];
+            if (resetIds.includes(input.id)) input.value = 'no';
         });
-
         document.getElementById('presumptiveGroup').style.display = 'none';
-
-        // Go to step 1
         currentStep = 1;
         showStep(1);
         updateProgressBar();
         window.scrollTo({ top: 0, behavior: 'smooth' });
-    };
+    }
 
     // ──────────────────────────────────────────────────
     // STEP NAVIGATION
     // ──────────────────────────────────────────────────
 
-    window.nextStep = function (step) {
-        showStep(step);
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-    };
-
-    window.prevStep = function (step) {
-        showStep(step);
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-    };
-
     function showStep(step) {
-        // Hide all panels
         document.querySelectorAll('.step-panel').forEach(panel => {
             panel.classList.remove('active');
         });
-
-        // Show target panel
         const panel = document.getElementById(`step${step}`);
-        if (panel) {
-            panel.classList.add('active');
-        }
-
+        if (panel) panel.classList.add('active');
         currentStep = step;
         updateProgressBar();
     }
 
     function updateProgressBar() {
         const fill = document.getElementById('progressFill');
-        fill.style.width = `${(currentStep / 4) * 100}%`;
+        if (fill) fill.style.width = `${(currentStep / 4) * 100}%`;
 
         document.querySelectorAll('.progress-step').forEach(step => {
             const stepNum = parseInt(step.dataset.step);
             step.classList.remove('active', 'completed');
-
-            if (stepNum === currentStep) {
-                step.classList.add('active');
-            } else if (stepNum < currentStep) {
-                step.classList.add('completed');
-            }
+            if (stepNum === currentStep) step.classList.add('active');
+            else if (stepNum < currentStep) step.classList.add('completed');
         });
     }
 
@@ -130,43 +90,51 @@
     // TOGGLE OPTIONS (Yes/No buttons)
     // ──────────────────────────────────────────────────
 
-    window.toggleOption = function (btn, inputId) {
+    function handleToggle(btn) {
+        const inputId = btn.dataset.inputId;
         const group = btn.parentElement;
         group.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
 
         const hiddenInput = document.getElementById(inputId);
-        hiddenInput.value = btn.dataset.value;
+        if (hiddenInput) hiddenInput.value = btn.dataset.value;
 
-        // Show/hide conditional fields
         if (inputId === 'hasBusinessIncome') {
             const presumptiveGroup = document.getElementById('presumptiveGroup');
             presumptiveGroup.style.display = btn.dataset.value === 'yes' ? 'block' : 'none';
             if (btn.dataset.value === 'no') {
                 document.getElementById('presumptiveTax').value = 'no';
+                // Reset presumptive toggle to "No"
+                const presGroup = document.getElementById('presumptiveGroup');
+                if (presGroup) {
+                    presGroup.querySelectorAll('.toggle-btn').forEach((b, i) => {
+                        b.classList.toggle('active', i === 0);
+                    });
+                }
             }
         }
-    };
+    }
+
+    // ──────────────────────────────────────────────────
+    // BREAKDOWN TAB TOGGLE
+    // ──────────────────────────────────────────────────
+
+    function switchBreakdownTab(regime, btn) {
+        document.querySelectorAll('.breakdown-tab').forEach(t => t.classList.remove('active'));
+        btn.classList.add('active');
+        document.getElementById('breakdownOld').style.display = regime === 'old' ? 'block' : 'none';
+        document.getElementById('breakdownNew').style.display = regime === 'new' ? 'block' : 'none';
+    }
 
     // ──────────────────────────────────────────────────
     // CURRENCY FORMATTING (Indian Numbering)
     // ──────────────────────────────────────────────────
 
-    window.formatCurrency = function (input) {
-        // Strip everything except digits
+    function formatCurrencyInput(input) {
         let value = input.value.replace(/[^0-9]/g, '');
-
-        if (value.length === 0) {
-            input.value = '';
-            return;
-        }
-
-        // Convert to number
-        const num = parseInt(value, 10);
-
-        // Format in Indian numbering
-        input.value = TaxEngine.formatINR(num);
-    };
+        if (value.length === 0) { input.value = ''; return; }
+        input.value = TaxEngine.formatINR(parseInt(value, 10));
+    }
 
     function parseFormattedNumber(str) {
         if (!str || str.trim() === '') return 0;
@@ -179,7 +147,6 @@
 
     function collectInputs() {
         return {
-            // Step 1: Basic Info
             ageGroup: document.getElementById('ageGroup').value,
             residencyStatus: document.getElementById('residencyStatus').value,
             taxpayerType: document.getElementById('taxpayerType').value,
@@ -189,7 +156,6 @@
             hasUnlistedShares: document.getElementById('hasUnlistedShares').value,
             hasForeignAssets: document.getElementById('hasForeignAssets').value,
 
-            // Step 2: Income
             grossSalary: parseFormattedNumber(document.getElementById('grossSalary').value),
             basicSalary: parseFormattedNumber(document.getElementById('basicSalary').value),
             hraReceived: parseFormattedNumber(document.getElementById('hraReceived').value),
@@ -208,7 +174,6 @@
             otherIncome: parseFormattedNumber(document.getElementById('otherIncome').value),
             agriculturalIncome: parseFormattedNumber(document.getElementById('agriculturalIncome').value),
 
-            // Step 3: Deductions
             section80C: parseFormattedNumber(document.getElementById('section80C').value),
             section80CCD1B: parseFormattedNumber(document.getElementById('section80CCD1B').value),
             section80CCD2: parseFormattedNumber(document.getElementById('section80CCD2').value),
@@ -225,51 +190,28 @@
     // CALCULATE & SHOW RESULTS
     // ──────────────────────────────────────────────────
 
-    window.calculateAndShowResults = function () {
+    function calculateAndShowResults() {
         const inputs = collectInputs();
-
-        // 1. Determine ITR Form
         lastFormResult = FormSelector.selectForm(inputs);
-
-        // 2. Calculate and Compare Regimes
         lastResults = TaxEngine.compare(inputs);
-
-        // 3. Generate Tips
         lastTips = TaxEngine.generateTips(inputs, lastResults);
 
-        // 4. Render Results
         UIController.renderITRResult(lastFormResult);
         UIController.renderComparison(lastResults);
         UIController.renderBreakdown(lastResults);
         UIController.renderTips(lastTips);
 
-        // 5. Navigate to Step 4
         showStep(4);
         window.scrollTo({ top: 0, behavior: 'smooth' });
-    };
-
-    // ──────────────────────────────────────────────────
-    // BREAKDOWN TAB TOGGLE
-    // ──────────────────────────────────────────────────
-
-    window.switchBreakdownTab = function (regime, btn) {
-        document.querySelectorAll('.breakdown-tab').forEach(t => t.classList.remove('active'));
-        btn.classList.add('active');
-
-        document.getElementById('breakdownOld').style.display = regime === 'old' ? 'block' : 'none';
-        document.getElementById('breakdownNew').style.display = regime === 'new' ? 'block' : 'none';
-    };
+    }
 
     // ──────────────────────────────────────────────────
     // DOWNLOAD REPORT
     // ──────────────────────────────────────────────────
 
-    window.downloadReport = function () {
+    function downloadReport() {
         if (!lastResults || !lastFormResult) return;
-
         const report = UIController.generateReport(lastFormResult, lastResults, lastTips || []);
-
-        // Create and trigger download
         const blob = new Blob([report], { type: 'text/plain;charset=utf-8' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -279,34 +221,105 @@
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
-    };
+    }
 
     // ──────────────────────────────────────────────────
     // HERO ANIMATIONS (Counter Animation)
     // ──────────────────────────────────────────────────
 
     function animateCounters() {
-        const counters = document.querySelectorAll('.stat-number[data-count]');
-        counters.forEach(counter => {
+        document.querySelectorAll('.stat-number[data-count]').forEach(counter => {
             const target = parseInt(counter.dataset.count);
             const duration = 1500;
             let startTime = null;
-
             function tick(timestamp) {
                 if (!startTime) startTime = timestamp;
-                const elapsed = timestamp - startTime;
-                const progress = Math.min(elapsed / duration, 1);
-
-                // easeOutExpo
+                const progress = Math.min((timestamp - startTime) / duration, 1);
                 const eased = progress === 1 ? 1 : 1 - Math.pow(2, -10 * progress);
                 counter.textContent = Math.round(eased * target);
-
-                if (progress < 1) {
-                    requestAnimationFrame(tick);
-                }
+                if (progress < 1) requestAnimationFrame(tick);
             }
-
             requestAnimationFrame(tick);
+        });
+    }
+
+    // ──────────────────────────────────────────────────
+    // WIRE ALL EVENT LISTENERS (CSP-compliant — no onclick in HTML)
+    // ──────────────────────────────────────────────────
+
+    function wireEvents() {
+        // Hero CTA
+        const startBtn = document.getElementById('startButton');
+        if (startBtn) startBtn.addEventListener('click', startCalculator);
+
+        // Step 1 → Back to hero
+        const backToHeroBtn = document.querySelector('#step1 .btn-secondary');
+        if (backToHeroBtn) backToHeroBtn.addEventListener('click', goToHero);
+
+        // Step 1 → Continue to step 2
+        const step1Next = document.querySelector('#step1 .btn-primary');
+        if (step1Next) step1Next.addEventListener('click', () => { showStep(2); window.scrollTo({ top: 0, behavior: 'smooth' }); });
+
+        // Step 2 → Back to step 1
+        const step2Back = document.querySelector('#step2 .btn-secondary');
+        if (step2Back) step2Back.addEventListener('click', () => { showStep(1); window.scrollTo({ top: 0, behavior: 'smooth' }); });
+
+        // Step 2 → Continue to step 3
+        const step2Next = document.querySelector('#step2 .btn-primary');
+        if (step2Next) step2Next.addEventListener('click', () => { showStep(3); window.scrollTo({ top: 0, behavior: 'smooth' }); });
+
+        // Step 3 → Back to step 2
+        const step3Back = document.querySelector('#step3 .btn-secondary');
+        if (step3Back) step3Back.addEventListener('click', () => { showStep(2); window.scrollTo({ top: 0, behavior: 'smooth' }); });
+
+        // Step 3 → Calculate
+        const calcBtn = document.querySelector('.btn-calculate');
+        if (calcBtn) calcBtn.addEventListener('click', calculateAndShowResults);
+
+        // Step 4 → Modify Inputs (go to step 3)
+        const step4Back = document.querySelector('#step4 .btn-secondary');
+        if (step4Back) step4Back.addEventListener('click', () => { showStep(3); window.scrollTo({ top: 0, behavior: 'smooth' }); });
+
+        // Step 4 → Download report
+        const downloadBtn = document.querySelector('#step4 .btn-primary');
+        if (downloadBtn) downloadBtn.addEventListener('click', downloadReport);
+
+        // Step 4 → Start over
+        const startOverBtn = document.querySelector('.btn-ghost');
+        if (startOverBtn) startOverBtn.addEventListener('click', startOver);
+
+        // Breakdown tabs
+        document.querySelectorAll('.breakdown-tab').forEach(tab => {
+            tab.addEventListener('click', function () {
+                const regime = this.textContent.toLowerCase().includes('old') ? 'old' : 'new';
+                switchBreakdownTab(regime, this);
+            });
+        });
+
+        // Toggle buttons (Yes/No) — use data-input-id attribute
+        document.querySelectorAll('.toggle-btn').forEach(btn => {
+            btn.addEventListener('click', function () {
+                handleToggle(this);
+            });
+        });
+
+        // Currency inputs — format on input
+        document.querySelectorAll('input[type="text"]').forEach(input => {
+            input.addEventListener('input', function () {
+                formatCurrencyInput(this);
+            });
+        });
+
+        // Keyboard navigation (Tab-through with Enter)
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && e.target.tagName === 'INPUT') {
+                e.preventDefault();
+                const inputs = Array.from(document.querySelectorAll(
+                    `.step-panel.active input[type="text"], .step-panel.active select`
+                ));
+                const currentIndex = inputs.indexOf(e.target);
+                if (currentIndex < inputs.length - 1) inputs[currentIndex + 1].focus();
+            }
         });
     }
 
@@ -315,26 +328,9 @@
     // ──────────────────────────────────────────────────
 
     function init() {
-        // Hide footer initially
         document.getElementById('footer').style.display = 'none';
-
-        // Run counter animations
         animateCounters();
-
-        // Keyboard navigation
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' && e.target.tagName === 'INPUT') {
-                e.preventDefault();
-                // Focus next input
-                const inputs = Array.from(document.querySelectorAll(
-                    `.step-panel.active input[type="text"], .step-panel.active select`
-                ));
-                const currentIndex = inputs.indexOf(e.target);
-                if (currentIndex < inputs.length - 1) {
-                    inputs[currentIndex + 1].focus();
-                }
-            }
-        });
+        wireEvents();
 
         console.log(
             '%c🧾 ITR Form Selector + Regime Comparator %c FY 2025-26 ',
@@ -347,7 +343,6 @@
         );
     }
 
-    // Run on DOM ready
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', init);
     } else {

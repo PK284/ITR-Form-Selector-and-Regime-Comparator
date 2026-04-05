@@ -65,7 +65,7 @@
                     <span class="stat-label">Data Retention</span>
                 </div>
             </div>
-            <button class="cta-button" id="startButton" onclick="startCalculator()">
+            <button class="cta-button" id="startButton">
                 <span>Calculate My Tax</span>
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                     <line x1="5" y1="12" x2="19" y2="12"></line>
@@ -150,53 +150,53 @@
                 <div class="form-group">
                     <label for="hasBusinessIncome">Do you have Business/Profession income?</label>
                     <div class="toggle-group">
-                        <button class="toggle-btn active" data-value="no" onclick="toggleOption(this, 'hasBusinessIncome')">No</button>
-                        <button class="toggle-btn" data-value="yes" onclick="toggleOption(this, 'hasBusinessIncome')">Yes</button>
+                        <button class="toggle-btn active" data-input-id="hasBusinessIncome" data-value="no">No</button>
+                        <button class="toggle-btn" data-input-id="hasBusinessIncome" data-value="yes">Yes</button>
                     </div>
                     <input type="hidden" id="hasBusinessIncome" value="no">
                 </div>
                 <div class="form-group conditional" id="presumptiveGroup" style="display:none;">
                     <label for="presumptiveTax">Are you under Presumptive Taxation (44AD/44ADA/44AE)?</label>
                     <div class="toggle-group">
-                        <button class="toggle-btn active" data-value="no" onclick="toggleOption(this, 'presumptiveTax')">No</button>
-                        <button class="toggle-btn" data-value="yes" onclick="toggleOption(this, 'presumptiveTax')">Yes</button>
+                        <button class="toggle-btn active" data-input-id="presumptiveTax" data-value="no">No</button>
+                        <button class="toggle-btn" data-input-id="presumptiveTax" data-value="yes">Yes</button>
                     </div>
                     <input type="hidden" id="presumptiveTax" value="no">
                 </div>
                 <div class="form-group">
                     <label for="isDirector">Are you a Director in any company?</label>
                     <div class="toggle-group">
-                        <button class="toggle-btn active" data-value="no" onclick="toggleOption(this, 'isDirector')">No</button>
-                        <button class="toggle-btn" data-value="yes" onclick="toggleOption(this, 'isDirector')">Yes</button>
+                        <button class="toggle-btn active" data-input-id="isDirector" data-value="no">No</button>
+                        <button class="toggle-btn" data-input-id="isDirector" data-value="yes">Yes</button>
                     </div>
                     <input type="hidden" id="isDirector" value="no">
                 </div>
                 <div class="form-group">
                     <label for="hasUnlistedShares">Do you hold unlisted equity shares?</label>
                     <div class="toggle-group">
-                        <button class="toggle-btn active" data-value="no" onclick="toggleOption(this, 'hasUnlistedShares')">No</button>
-                        <button class="toggle-btn" data-value="yes" onclick="toggleOption(this, 'hasUnlistedShares')">Yes</button>
+                        <button class="toggle-btn active" data-input-id="hasUnlistedShares" data-value="no">No</button>
+                        <button class="toggle-btn" data-input-id="hasUnlistedShares" data-value="yes">Yes</button>
                     </div>
                     <input type="hidden" id="hasUnlistedShares" value="no">
                 </div>
                 <div class="form-group">
                     <label for="hasForeignAssets">Do you have foreign assets / foreign income?</label>
                     <div class="toggle-group">
-                        <button class="toggle-btn active" data-value="no" onclick="toggleOption(this, 'hasForeignAssets')">No</button>
-                        <button class="toggle-btn" data-value="yes" onclick="toggleOption(this, 'hasForeignAssets')">Yes</button>
+                        <button class="toggle-btn active" data-input-id="hasForeignAssets" data-value="no">No</button>
+                        <button class="toggle-btn" data-input-id="hasForeignAssets" data-value="yes">Yes</button>
                     </div>
                     <input type="hidden" id="hasForeignAssets" value="no">
                 </div>
             </div>
             <div class="step-actions">
-                <button class="btn-secondary" onclick="goToHero()">
+                <button class="btn-secondary">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <line x1="19" y1="12" x2="5" y2="12"></line>
                         <polyline points="12 19 5 12 12 5"></polyline>
                     </svg>
                     Back
                 </button>
-                <button class="btn-primary" onclick="nextStep(2)">
+                <button class="btn-primary">
                     Continue
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <line x1="5" y1="12" x2="19" y2="12"></line>
@@ -227,35 +227,35 @@
                         <label for="grossSalary">Gross Salary (Annual) <span class="hint">Basic + DA + HRA + Allowances</span></label>
                         <div class="input-wrapper">
                             <span class="input-prefix">₹</span>
-                            <input type="text" id="grossSalary" placeholder="0" oninput="formatCurrency(this)">
+                            <input type="text" id="grossSalary" placeholder="0">
                         </div>
                     </div>
                     <div class="form-group">
                         <label for="basicSalary">Basic Salary + DA (Annual) <span class="hint">For HRA calculation</span></label>
                         <div class="input-wrapper">
                             <span class="input-prefix">₹</span>
-                            <input type="text" id="basicSalary" placeholder="0" oninput="formatCurrency(this)">
+                            <input type="text" id="basicSalary" placeholder="0">
                         </div>
                     </div>
                     <div class="form-group">
                         <label for="hraReceived">HRA Received (Annual)</label>
                         <div class="input-wrapper">
                             <span class="input-prefix">₹</span>
-                            <input type="text" id="hraReceived" placeholder="0" oninput="formatCurrency(this)">
+                            <input type="text" id="hraReceived" placeholder="0">
                         </div>
                     </div>
                     <div class="form-group" id="hraRentGroup">
                         <label for="rentPaid">Rent Paid (Annual) <span class="hint">If claiming HRA</span></label>
                         <div class="input-wrapper">
                             <span class="input-prefix">₹</span>
-                            <input type="text" id="rentPaid" placeholder="0" oninput="formatCurrency(this)">
+                            <input type="text" id="rentPaid" placeholder="0">
                         </div>
                     </div>
                     <div class="form-group">
                         <label for="isMetroCity">City of Residence</label>
                         <div class="toggle-group">
-                            <button class="toggle-btn active" data-value="no" onclick="toggleOption(this, 'isMetroCity')">Non-Metro</button>
-                            <button class="toggle-btn" data-value="yes" onclick="toggleOption(this, 'isMetroCity')">Metro (Delhi/Mumbai/Kolkata/Chennai)</button>
+                            <button class="toggle-btn active" data-input-id="isMetroCity" data-value="no">Non-Metro</button>
+                            <button class="toggle-btn" data-input-id="isMetroCity" data-value="yes">Metro (Delhi/Mumbai/Kolkata/Chennai)</button>
                         </div>
                         <input type="hidden" id="isMetroCity" value="no">
                     </div>
@@ -274,21 +274,21 @@
                         <label for="rentalIncome">Gross Rental Income (Annual) <span class="hint">From let-out property</span></label>
                         <div class="input-wrapper">
                             <span class="input-prefix">₹</span>
-                            <input type="text" id="rentalIncome" placeholder="0" oninput="formatCurrency(this)">
+                            <input type="text" id="rentalIncome" placeholder="0">
                         </div>
                     </div>
                     <div class="form-group">
                         <label for="propertyTax">Municipal Tax Paid (Annual)</label>
                         <div class="input-wrapper">
                             <span class="input-prefix">₹</span>
-                            <input type="text" id="propertyTax" placeholder="0" oninput="formatCurrency(this)">
+                            <input type="text" id="propertyTax" placeholder="0">
                         </div>
                     </div>
                     <div class="form-group">
                         <label for="homeLoanInterest">Home Loan Interest Paid (Annual) <span class="hint">Self-occupied / Let-out</span></label>
                         <div class="input-wrapper">
                             <span class="input-prefix">₹</span>
-                            <input type="text" id="homeLoanInterest" placeholder="0" oninput="formatCurrency(this)">
+                            <input type="text" id="homeLoanInterest" placeholder="0">
                         </div>
                     </div>
                     <div class="form-group">
@@ -317,28 +317,28 @@
                         <label for="stcg15">STCG (Section 111A) <span class="hint">Listed equity & equity MFs — taxed at 15%</span></label>
                         <div class="input-wrapper">
                             <span class="input-prefix">₹</span>
-                            <input type="text" id="stcg15" placeholder="0" oninput="formatCurrency(this)">
+                            <input type="text" id="stcg15" placeholder="0">
                         </div>
                     </div>
                     <div class="form-group">
                         <label for="stcgOther">STCG (Other) <span class="hint">Debt funds, gold, property etc — taxed at slab rate</span></label>
                         <div class="input-wrapper">
                             <span class="input-prefix">₹</span>
-                            <input type="text" id="stcgOther" placeholder="0" oninput="formatCurrency(this)">
+                            <input type="text" id="stcgOther" placeholder="0">
                         </div>
                     </div>
                     <div class="form-group">
                         <label for="ltcg10">LTCG (Section 112A) <span class="hint">Listed equity & equity MFs — taxed at 10% above ₹1.25L</span></label>
                         <div class="input-wrapper">
                             <span class="input-prefix">₹</span>
-                            <input type="text" id="ltcg10" placeholder="0" oninput="formatCurrency(this)">
+                            <input type="text" id="ltcg10" placeholder="0">
                         </div>
                     </div>
                     <div class="form-group">
                         <label for="ltcg20">LTCG (Other) <span class="hint">Property, gold, debt MFs — taxed at 20% with indexation</span></label>
                         <div class="input-wrapper">
                             <span class="input-prefix">₹</span>
-                            <input type="text" id="ltcg20" placeholder="0" oninput="formatCurrency(this)">
+                            <input type="text" id="ltcg20" placeholder="0">
                         </div>
                     </div>
                 </div>
@@ -356,41 +356,41 @@
                         <label for="interestIncome">Interest Income <span class="hint">Savings account, FD, RD etc.</span></label>
                         <div class="input-wrapper">
                             <span class="input-prefix">₹</span>
-                            <input type="text" id="interestIncome" placeholder="0" oninput="formatCurrency(this)">
+                            <input type="text" id="interestIncome" placeholder="0">
                         </div>
                     </div>
                     <div class="form-group">
                         <label for="dividendIncome">Dividend Income</label>
                         <div class="input-wrapper">
                             <span class="input-prefix">₹</span>
-                            <input type="text" id="dividendIncome" placeholder="0" oninput="formatCurrency(this)">
+                            <input type="text" id="dividendIncome" placeholder="0">
                         </div>
                     </div>
                     <div class="form-group">
                         <label for="otherIncome">Any Other Income <span class="hint">Freelance (Enter Net Profit, 50% of gross if 44ADA), gifts, etc.</span></label>
                         <div class="input-wrapper">
                             <span class="input-prefix">₹</span>
-                            <input type="text" id="otherIncome" placeholder="0" oninput="formatCurrency(this)">
+                            <input type="text" id="otherIncome" placeholder="0">
                         </div>
                     </div>
                     <div class="form-group">
                         <label for="agriculturalIncome">Agricultural Income</label>
                         <div class="input-wrapper">
                             <span class="input-prefix">₹</span>
-                            <input type="text" id="agriculturalIncome" placeholder="0" oninput="formatCurrency(this)">
+                            <input type="text" id="agriculturalIncome" placeholder="0">
                         </div>
                     </div>
                 </div>
             </div>
             <div class="step-actions">
-                <button class="btn-secondary" onclick="prevStep(1)">
+                <button class="btn-secondary">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <line x1="19" y1="12" x2="5" y2="12"></line>
                         <polyline points="12 19 5 12 12 5"></polyline>
                     </svg>
                     Back
                 </button>
-                <button class="btn-primary" onclick="nextStep(3)">
+                <button class="btn-primary">
                     Continue
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <line x1="5" y1="12" x2="19" y2="12"></line>
@@ -427,7 +427,7 @@
                         <label for="section80C">Total Section 80C Investments</label>
                         <div class="input-wrapper">
                             <span class="input-prefix">₹</span>
-                            <input type="text" id="section80C" placeholder="0" oninput="formatCurrency(this)" data-max="150000">
+                            <input type="text" id="section80C" placeholder="0" data-max="150000">
                         </div>
                         <div class="input-limit">Max: ₹1,50,000</div>
                     </div>
@@ -443,7 +443,7 @@
                         <label for="section80CCD1B">NPS Contribution (Additional)</label>
                         <div class="input-wrapper">
                             <span class="input-prefix">₹</span>
-                            <input type="text" id="section80CCD1B" placeholder="0" oninput="formatCurrency(this)" data-max="50000">
+                            <input type="text" id="section80CCD1B" placeholder="0" data-max="50000">
                         </div>
                         <div class="input-limit">Max: ₹50,000 (over and above 80C)</div>
                     </div>
@@ -460,7 +460,7 @@
                         <label for="section80CCD2">Employer's NPS Contribution (Annual)</label>
                         <div class="input-wrapper">
                             <span class="input-prefix">₹</span>
-                            <input type="text" id="section80CCD2" placeholder="0" oninput="formatCurrency(this)">
+                            <input type="text" id="section80CCD2" placeholder="0">
                         </div>
                     </div>
                 </div>
@@ -475,21 +475,21 @@
                         <label for="section80D_self">Self & Family Premium <span class="hint">Max ₹25,000 (₹50,000 if senior)</span></label>
                         <div class="input-wrapper">
                             <span class="input-prefix">₹</span>
-                            <input type="text" id="section80D_self" placeholder="0" oninput="formatCurrency(this)" data-max="25000">
+                            <input type="text" id="section80D_self" placeholder="0" data-max="25000">
                         </div>
                     </div>
                     <div class="form-group">
                         <label for="section80D_parents">Parents' Premium <span class="hint">Max ₹25,000 (₹50,000 if senior parent)</span></label>
                         <div class="input-wrapper">
                             <span class="input-prefix">₹</span>
-                            <input type="text" id="section80D_parents" placeholder="0" oninput="formatCurrency(this)" data-max="50000">
+                            <input type="text" id="section80D_parents" placeholder="0" data-max="50000">
                         </div>
                     </div>
                     <div class="form-group">
                         <label for="preventiveHealth">Preventive Health Check-up <span class="hint">Included in 80D limit, max ₹5,000</span></label>
                         <div class="input-wrapper">
                             <span class="input-prefix">₹</span>
-                            <input type="text" id="preventiveHealth" placeholder="0" oninput="formatCurrency(this)" data-max="5000">
+                            <input type="text" id="preventiveHealth" placeholder="0" data-max="5000">
                         </div>
                     </div>
                 </div>
@@ -504,7 +504,7 @@
                         <label for="section80E">Interest Paid on Education Loan <span class="hint">No upper limit</span></label>
                         <div class="input-wrapper">
                             <span class="input-prefix">₹</span>
-                            <input type="text" id="section80E" placeholder="0" oninput="formatCurrency(this)">
+                            <input type="text" id="section80E" placeholder="0">
                         </div>
                     </div>
                 </div>
@@ -519,7 +519,7 @@
                         <label for="section80G">Donations (Eligible for deduction)</label>
                         <div class="input-wrapper">
                             <span class="input-prefix">₹</span>
-                            <input type="text" id="section80G" placeholder="0" oninput="formatCurrency(this)">
+                            <input type="text" id="section80G" placeholder="0">
                         </div>
                     </div>
                 </div>
@@ -534,7 +534,7 @@
                         <label for="section80TTA">Savings Account Interest <span class="hint">Max ₹10,000 (₹50,000 for seniors under 80TTB)</span></label>
                         <div class="input-wrapper">
                             <span class="input-prefix">₹</span>
-                            <input type="text" id="section80TTA" placeholder="0" oninput="formatCurrency(this)" data-max="10000">
+                            <input type="text" id="section80TTA" placeholder="0" data-max="10000">
                         </div>
                     </div>
                 </div>
@@ -549,14 +549,14 @@
                 </div>
             </div>
             <div class="step-actions">
-                <button class="btn-secondary" onclick="prevStep(2)">
+                <button class="btn-secondary">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <line x1="19" y1="12" x2="5" y2="12"></line>
                         <polyline points="12 19 5 12 12 5"></polyline>
                     </svg>
                     Back
                 </button>
-                <button class="btn-primary btn-calculate" onclick="calculateAndShowResults()">
+                <button class="btn-primary btn-calculate">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <rect x="4" y="2" width="16" height="20" rx="2" ry="2"></rect>
                         <line x1="8" y1="6" x2="16" y2="6"></line>
@@ -604,8 +604,8 @@
                 <div class="result-card-header">
                     <h3>📑 Detailed Tax Breakdown</h3>
                     <div class="breakdown-toggle">
-                        <button class="breakdown-tab active" onclick="switchBreakdownTab('old', this)">Old Regime</button>
-                        <button class="breakdown-tab" onclick="switchBreakdownTab('new', this)">New Regime</button>
+                        <button class="breakdown-tab active">Old Regime</button>
+                        <button class="breakdown-tab">New Regime</button>
                     </div>
                 </div>
                 <div class="breakdown-content" id="breakdownOld">
@@ -628,14 +628,14 @@
 
             <!-- Actions -->
             <div class="result-actions">
-                <button class="btn-secondary" onclick="prevStep(3)">
+                <button class="btn-secondary">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <line x1="19" y1="12" x2="5" y2="12"></line>
                         <polyline points="12 19 5 12 12 5"></polyline>
                     </svg>
                     Modify Inputs
                 </button>
-                <button class="btn-primary" onclick="downloadReport()">
+                <button class="btn-primary">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
                         <polyline points="7 10 12 15 17 10"></polyline>
@@ -643,7 +643,7 @@
                     </svg>
                     Download Report (PDF)
                 </button>
-                <button class="btn-ghost" onclick="startOver()">
+                <button class="btn-ghost">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <polyline points="1 4 1 10 7 10"></polyline>
                         <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path>
