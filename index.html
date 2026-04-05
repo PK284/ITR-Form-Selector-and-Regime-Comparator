@@ -674,9 +674,1666 @@
         </div>
     </footer>
 
-    <script src="js/taxEngine.js?v=2.0"></script>
-    <script src="js/formSelector.js?v=2.0"></script>
-    <script src="js/uiController.js?v=2.0"></script>
-    <script src="js/app.js?v=2.0"></script>
+<script>
+/**
+ * ============================================================
+ * TAX ENGINE — FY 2025-26 (AY 2026-27)
+ * Pure client-side tax calculations for Indian Income Tax
+ * ============================================================
+ * 
+ * Sources: Income Tax Act, Budget 2025 announcements
+ * Disclaimer: For informational purposes only.
+ */
+
+const TaxEngine = (() => {
+    'use strict';
+
+    // ──────────────────────────────────────────────────
+    // TAX SLABS — FY 2025-26
+    // ──────────────────────────────────────────────────
+
+    const NEW_REGIME_SLABS = [
+        { min: 0,       max: 400000,   rate: 0    },
+        { min: 400000,  max: 800000,   rate: 0.05 },
+        { min: 800000,  max: 1200000,  rate: 0.10 },
+        { min: 1200000, max: 1600000,  rate: 0.15 },
+        { min: 1600000, max: 2000000,  rate: 0.20 },
+        { min: 2000000, max: 2400000,  rate: 0.25 },
+        { min: 2400000, max: Infinity, rate: 0.30 },
+    ];
+
+    // Old Regime — Below 60 years
+    const OLD_REGIME_SLABS_GENERAL = [
+        { min: 0,       max: 250000,   rate: 0    },
+        { min: 250000,  max: 500000,   rate: 0.05 },
+        { min: 500000,  max: 1000000,  rate: 0.20 },
+        { min: 1000000, max: Infinity, rate: 0.30 },
+    ];
+
+    // Old Regime — Senior Citizen (60-80)
+    const OLD_REGIME_SLABS_SENIOR = [
+        { min: 0,       max: 300000,   rate: 0    },
+        { min: 300000,  max: 500000,   rate: 0.05 },
+        { min: 500000,  max: 1000000,  rate: 0.20 },
+        { min: 1000000, max: Infinity, rate: 0.30 },
+    ];
+
+    // Old Regime — Super Senior (80+)
+    const OLD_REGIME_SLABS_SUPER_SENIOR = [
+        { min: 0,       max: 500000,   rate: 0    },
+        { min: 500000,  max: 1000000,  rate: 0.20 },
+        { min: 1000000, max: Infinity, rate: 0.30 },
+    ];
+
+    // ──────────────────────────────────────────────────
+    // CONSTANTS
+    // ──────────────────────────────────────────────────
+
+    const STANDARD_DEDUCTION_OLD = 50000;
+    const STANDARD_DEDUCTION_NEW = 75000;
+    const CESS_RATE = 0.04; // 4% Health & Education Cess
+
+    // Section 87A Rebate
+    const REBATE_87A_OLD_LIMIT = 500000;
+    const REBATE_87A_OLD_MAX = 12500;
+    const REBATE_87A_NEW_LIMIT = 1200000;  // Net taxable income limit for new regime
+
+    // STCG 111A rate
+    const STCG_111A_RATE = 0.20;  // Updated from 15% to 20% for FY 2025-26
+    
+    // LTCG 112A
+    const LTCG_112A_EXEMPTION = 125000;  // ₹1.25 lakh exemption
+    const LTCG_112A_RATE = 0.125;  // 12.5% for FY 2025-26
+
+    // LTCG Other (112)
+    const LTCG_OTHER_RATE = 0.125;  // 12.5% without indexation for FY 2025-26
+
+    // Surcharge slabs
+    const SURCHARGE_SLABS = [
+        { min: 0,         max: 5000000,   rate: 0    },
+        { min: 5000000,   max: 10000000,  rate: 0.10 },
+        { min: 10000000,  max: 20000000,  rate: 0.15 },
+        { min: 20000000,  max: 50000000,  rate: 0.25 },
+        { min: 50000000,  max: Infinity,  rate: 0.37 },
+    ];
+
+    // Surcharge for new regime is capped at 25%
+    const SURCHARGE_SLABS_NEW = [
+        { min: 0,         max: 5000000,   rate: 0    },
+        { min: 5000000,   max: 10000000,  rate: 0.10 },
+        { min: 10000000,  max: 20000000,  rate: 0.15 },
+        { min: 20000000,  max: Infinity,  rate: 0.25 },
+    ];
+
+    // ──────────────────────────────────────────────────
+    // HELPER: Calculate tax from slabs
+    // ──────────────────────────────────────────────────
+
+    function calculateSlabTax(income, slabs) {
+        let tax = 0;
+        const slabBreakdown = [];
+
+        for (const slab of slabs) {
+            if (income <= slab.min) break;
+            const taxableInSlab = Math.min(income, slab.max) - slab.min;
+            const taxInSlab = taxableInSlab * slab.rate;
+            tax += taxInSlab;
+
+            if (taxableInSlab > 0) {
+                slabBreakdown.push({
+                    min: slab.min,
+                    max: Math.min(income, slab.max),
+                    rate: slab.rate,
+                    taxableAmount: taxableInSlab,
+                    tax: taxInSlab
+                });
+            }
+        }
+
+        return { tax: Math.round(tax), breakdown: slabBreakdown };
+    }
+
+    // ──────────────────────────────────────────────────
+    // HELPER: Calculate Surcharge
+    // ──────────────────────────────────────────────────
+
+    function calculateSurcharge(totalIncome, baseTax, isNewRegime) {
+        const slabs = isNewRegime ? SURCHARGE_SLABS_NEW : SURCHARGE_SLABS;
+        let surchargeRate = 0;
+
+        for (const slab of slabs) {
+            if (totalIncome > slab.min && totalIncome <= slab.max) {
+                surchargeRate = slab.rate;
+                break;
+            }
+            if (totalIncome > slab.min && slab.max === Infinity) {
+                surchargeRate = slab.rate;
+                break;
+            }
+        }
+
+        // Marginal relief logic (simplified)
+        let surcharge = Math.round(baseTax * surchargeRate);
+        return { surcharge, rate: surchargeRate };
+    }
+
+    // ──────────────────────────────────────────────────
+    // HRA Exemption Calculation
+    // ──────────────────────────────────────────────────
+
+    function calculateHRAExemption(basicSalary, hraReceived, rentPaid, isMetro) {
+        if (!hraReceived || !rentPaid || !basicSalary) return 0;
+
+        const hraPercent = isMetro ? 0.50 : 0.40;
+        const exemption = Math.min(
+            hraReceived,
+            hraPercent * basicSalary,
+            Math.max(0, rentPaid - 0.10 * basicSalary)
+        );
+
+        return Math.max(0, Math.round(exemption));
+    }
+
+    // ──────────────────────────────────────────────────
+    // HOUSE PROPERTY INCOME
+    // ──────────────────────────────────────────────────
+
+    function calculateHousePropertyIncome(rentalIncome, propertyTax, homeLoanInterest, isOldRegime) {
+        let netIncome = 0;
+
+        if (rentalIncome > 0) {
+            // Let-out property
+            const nav = rentalIncome - propertyTax;
+            const standardDeduction30 = Math.round(nav * 0.30);
+            netIncome = nav - standardDeduction30 - homeLoanInterest;
+        } else {
+            // Self-occupied: only interest deduction
+            const maxInterest = isOldRegime ? 200000 : 200000;
+            netIncome = -Math.min(homeLoanInterest, maxInterest);
+        }
+
+        return Math.round(netIncome);
+    }
+
+    // ──────────────────────────────────────────────────
+    // MAIN: Calculate Tax for Old Regime
+    // ──────────────────────────────────────────────────
+
+    function calculateOldRegime(inputs) {
+        const result = {
+            regime: 'old',
+            grossSalary: inputs.grossSalary || 0,
+            standardDeduction: 0,
+            hraExemption: 0,
+            netSalaryIncome: 0,
+            housePropertyIncome: 0,
+            capitalGains: { stcg111A: 0, stcgOther: 0, ltcg112A: 0, ltcgOther: 0 },
+            otherIncome: 0,
+            grossTotalIncome: 0,
+            deductions: {},
+            totalDeductions: 0,
+            taxableIncome: 0,
+            normalTax: 0,
+            specialRateTax: 0,
+            totalTaxBeforeRebate: 0,
+            rebate87A: 0,
+            taxAfterRebate: 0,
+            surcharge: 0,
+            surchargeRate: 0,
+            cess: 0,
+            totalTaxLiability: 0,
+            effectiveTaxRate: 0,
+            slabBreakdown: []
+        };
+
+        // --- Salary Income ---
+        result.standardDeduction = inputs.grossSalary > 0 ? STANDARD_DEDUCTION_OLD : 0;
+        result.hraExemption = calculateHRAExemption(
+            inputs.basicSalary, inputs.hraReceived, inputs.rentPaid, inputs.isMetro
+        );
+        result.netSalaryIncome = Math.max(0,
+            inputs.grossSalary - result.standardDeduction - result.hraExemption
+        );
+
+        // --- House Property ---
+        result.housePropertyIncome = calculateHousePropertyIncome(
+            inputs.rentalIncome, inputs.propertyTax, inputs.homeLoanInterest, true
+        );
+
+        // --- Capital Gains (computed separately) ---
+        result.capitalGains = {
+            stcg111A: inputs.stcg15 || 0,
+            stcgOther: inputs.stcgOther || 0,
+            ltcg112A: Math.max(0, (inputs.ltcg10 || 0) - LTCG_112A_EXEMPTION),
+            ltcg112A_raw: inputs.ltcg10 || 0,
+            ltcgOther: inputs.ltcg20 || 0,
+        };
+
+        // --- Other Income ---
+        result.otherIncome = (inputs.interestIncome || 0)
+            + (inputs.dividendIncome || 0)
+            + (inputs.otherIncome || 0);
+
+        // --- Gross Total Income (excluding special rate CG) ---
+        const normalIncome = result.netSalaryIncome
+            + Math.max(result.housePropertyIncome, -200000) // Loss from HP capped at 2L
+            + result.capitalGains.stcgOther
+            + result.otherIncome;
+
+        result.grossTotalIncome = normalIncome;
+
+        // --- Deductions (Old Regime) ---
+        const sec80C = Math.min(inputs.section80C || 0, 150000);
+        const sec80CCD1B = Math.min(inputs.section80CCD1B || 0, 50000);
+        const sec80CCD2 = inputs.section80CCD2 || 0;
+        const sec80D_self = Math.min(inputs.section80D_self || 0,
+            inputs.ageGroup === 'senior' || inputs.ageGroup === 'superSenior' ? 50000 : 25000);
+        const sec80D_parents = Math.min(inputs.section80D_parents || 0, 50000);
+        const sec80E = inputs.section80E || 0;
+        const sec80G = inputs.section80G || 0;
+        const sec80TTA = Math.min(inputs.section80TTA || 0,
+            inputs.ageGroup === 'senior' || inputs.ageGroup === 'superSenior' ? 50000 : 10000);
+
+        result.deductions = {
+            '80C': sec80C,
+            '80CCD(1B)': sec80CCD1B,
+            '80CCD(2)': sec80CCD2,
+            '80D (Self)': sec80D_self,
+            '80D (Parents)': sec80D_parents,
+            '80E': sec80E,
+            '80G': sec80G,
+            '80TTA/TTB': sec80TTA,
+        };
+
+        result.totalDeductions = sec80C + sec80CCD1B + sec80CCD2
+            + sec80D_self + sec80D_parents + sec80E + sec80G + sec80TTA;
+
+        // --- Taxable Income ---
+        result.taxableIncome = Math.max(0, result.grossTotalIncome - result.totalDeductions);
+
+        // --- Get slabs based on age ---
+        let slabs;
+        switch (inputs.ageGroup) {
+            case 'senior':
+                slabs = OLD_REGIME_SLABS_SENIOR;
+                break;
+            case 'superSenior':
+                slabs = OLD_REGIME_SLABS_SUPER_SENIOR;
+                break;
+            default:
+                slabs = OLD_REGIME_SLABS_GENERAL;
+        }
+
+        // --- Normal Income Tax ---
+        const slabResult = calculateSlabTax(result.taxableIncome, slabs);
+        result.normalTax = slabResult.tax;
+        result.slabBreakdown = slabResult.breakdown;
+
+        // --- Special Rate Tax (Capital Gains) ---
+        const stcg111ATax = Math.round(result.capitalGains.stcg111A * STCG_111A_RATE);
+        const ltcg112ATax = Math.round(result.capitalGains.ltcg112A * LTCG_112A_RATE);
+        const ltcgOtherTax = Math.round(result.capitalGains.ltcgOther * LTCG_OTHER_RATE);
+
+        result.specialRateTax = stcg111ATax + ltcg112ATax + ltcgOtherTax;
+        result.specialRateBreakdown = {
+            'STCG 111A (20%)': stcg111ATax,
+            'LTCG 112A (12.5%)': ltcg112ATax,
+            'LTCG Other (12.5%)': ltcgOtherTax,
+        };
+
+        // --- Total Tax Before Rebate ---
+        result.totalTaxBeforeRebate = result.normalTax + result.specialRateTax;
+
+        // --- Rebate 87A ---
+        // Applies only to normal income tax, not special rate taxes
+        if (result.taxableIncome <= REBATE_87A_OLD_LIMIT) {
+            result.rebate87A = Math.min(result.normalTax, REBATE_87A_OLD_MAX);
+        }
+
+        // --- Tax After Rebate ---
+        result.taxAfterRebate = Math.max(0, result.totalTaxBeforeRebate - result.rebate87A);
+
+        // --- Surcharge ---
+        const totalIncomeForSurcharge = result.taxableIncome
+            + result.capitalGains.stcg111A
+            + result.capitalGains.ltcg112A
+            + result.capitalGains.ltcgOther;
+
+        const surchargeResult = calculateSurcharge(totalIncomeForSurcharge, result.taxAfterRebate, false);
+        result.surcharge = surchargeResult.surcharge;
+        result.surchargeRate = surchargeResult.rate;
+
+        // --- Cess ---
+        result.cess = Math.round((result.taxAfterRebate + result.surcharge) * CESS_RATE);
+
+        // --- Total Tax Liability ---
+        result.totalTaxLiability = result.taxAfterRebate + result.surcharge + result.cess;
+
+        // --- Effective Tax Rate ---
+        const totalGross = inputs.grossSalary + (inputs.rentalIncome || 0)
+            + (inputs.stcg15 || 0) + (inputs.stcgOther || 0)
+            + (inputs.ltcg10 || 0) + (inputs.ltcg20 || 0)
+            + result.otherIncome;
+        result.effectiveTaxRate = totalGross > 0
+            ? ((result.totalTaxLiability / totalGross) * 100).toFixed(2)
+            : '0.00';
+
+        return result;
+    }
+
+    // ──────────────────────────────────────────────────
+    // MAIN: Calculate Tax for New Regime
+    // ──────────────────────────────────────────────────
+
+    function calculateNewRegime(inputs) {
+        const result = {
+            regime: 'new',
+            grossSalary: inputs.grossSalary || 0,
+            standardDeduction: 0,
+            netSalaryIncome: 0,
+            housePropertyIncome: 0,
+            capitalGains: { stcg111A: 0, stcgOther: 0, ltcg112A: 0, ltcgOther: 0 },
+            otherIncome: 0,
+            grossTotalIncome: 0,
+            deductions: {},
+            totalDeductions: 0,
+            taxableIncome: 0,
+            normalTax: 0,
+            specialRateTax: 0,
+            totalTaxBeforeRebate: 0,
+            rebate87A: 0,
+            taxAfterRebate: 0,
+            surcharge: 0,
+            surchargeRate: 0,
+            cess: 0,
+            totalTaxLiability: 0,
+            effectiveTaxRate: 0,
+            slabBreakdown: []
+        };
+
+        // --- Salary Income (New regime: only Standard Deduction) ---
+        result.standardDeduction = inputs.grossSalary > 0 ? STANDARD_DEDUCTION_NEW : 0;
+        result.netSalaryIncome = Math.max(0, inputs.grossSalary - result.standardDeduction);
+
+        // --- House Property ---
+        result.housePropertyIncome = calculateHousePropertyIncome(
+            inputs.rentalIncome, inputs.propertyTax, inputs.homeLoanInterest, false
+        );
+
+        // --- Capital Gains ---
+        result.capitalGains = {
+            stcg111A: inputs.stcg15 || 0,
+            stcgOther: inputs.stcgOther || 0,
+            ltcg112A: Math.max(0, (inputs.ltcg10 || 0) - LTCG_112A_EXEMPTION),
+            ltcg112A_raw: inputs.ltcg10 || 0,
+            ltcgOther: inputs.ltcg20 || 0,
+        };
+
+        // --- Other Income ---
+        result.otherIncome = (inputs.interestIncome || 0)
+            + (inputs.dividendIncome || 0)
+            + (inputs.otherIncome || 0);
+
+        // --- Gross Total Income ---
+        const normalIncome = result.netSalaryIncome
+            + Math.max(result.housePropertyIncome, -200000)
+            + result.capitalGains.stcgOther
+            + result.otherIncome;
+
+        result.grossTotalIncome = normalIncome;
+
+        // --- Deductions (New Regime — very limited) ---
+        const sec80CCD2 = inputs.section80CCD2 || 0;  // Employer NPS: allowed
+        result.deductions = {
+            '80CCD(2) - Employer NPS': sec80CCD2,
+        };
+        result.totalDeductions = sec80CCD2;
+
+        // --- Taxable Income ---
+        result.taxableIncome = Math.max(0, result.grossTotalIncome - result.totalDeductions);
+
+        // --- Tax Calculation ---
+        const slabResult = calculateSlabTax(result.taxableIncome, NEW_REGIME_SLABS);
+        result.normalTax = slabResult.tax;
+        result.slabBreakdown = slabResult.breakdown;
+
+        // --- Special Rate Tax ---
+        const stcg111ATax = Math.round(result.capitalGains.stcg111A * STCG_111A_RATE);
+        const ltcg112ATax = Math.round(result.capitalGains.ltcg112A * LTCG_112A_RATE);
+        const ltcgOtherTax = Math.round(result.capitalGains.ltcgOther * LTCG_OTHER_RATE);
+
+        result.specialRateTax = stcg111ATax + ltcg112ATax + ltcgOtherTax;
+        result.specialRateBreakdown = {
+            'STCG 111A (20%)': stcg111ATax,
+            'LTCG 112A (12.5%)': ltcg112ATax,
+            'LTCG Other (12.5%)': ltcgOtherTax,
+        };
+
+        // --- Total Tax Before Rebate ---
+        result.totalTaxBeforeRebate = result.normalTax + result.specialRateTax;
+
+        // --- Rebate 87A (New Regime) ---
+        // Full rebate if taxable income ≤ ₹12,00,000 (excluding special rate income)
+        if (result.taxableIncome <= REBATE_87A_NEW_LIMIT) {
+            result.rebate87A = result.normalTax; // Full rebate on normal tax
+        }
+
+        // --- Tax After Rebate ---
+        result.taxAfterRebate = Math.max(0, result.totalTaxBeforeRebate - result.rebate87A);
+
+        // --- Surcharge ---
+        const totalIncomeForSurcharge = result.taxableIncome
+            + result.capitalGains.stcg111A
+            + result.capitalGains.ltcg112A
+            + result.capitalGains.ltcgOther;
+
+        const surchargeResult = calculateSurcharge(totalIncomeForSurcharge, result.taxAfterRebate, true);
+        result.surcharge = surchargeResult.surcharge;
+        result.surchargeRate = surchargeResult.rate;
+
+        // --- Cess ---
+        result.cess = Math.round((result.taxAfterRebate + result.surcharge) * CESS_RATE);
+
+        // --- Total Tax Liability ---
+        result.totalTaxLiability = result.taxAfterRebate + result.surcharge + result.cess;
+
+        // --- Effective Tax Rate ---
+        const totalGross = inputs.grossSalary + (inputs.rentalIncome || 0)
+            + (inputs.stcg15 || 0) + (inputs.stcgOther || 0)
+            + (inputs.ltcg10 || 0) + (inputs.ltcg20 || 0)
+            + result.otherIncome;
+        result.effectiveTaxRate = totalGross > 0
+            ? ((result.totalTaxLiability / totalGross) * 100).toFixed(2)
+            : '0.00';
+
+        return result;
+    }
+
+    // ──────────────────────────────────────────────────
+    // COMPARE & RECOMMEND
+    // ──────────────────────────────────────────────────
+
+    function compare(inputs) {
+        const oldResult = calculateOldRegime(inputs);
+        const newResult = calculateNewRegime(inputs);
+
+        const savings = oldResult.totalTaxLiability - newResult.totalTaxLiability;
+        let recommendation;
+
+        if (savings > 0) {
+            recommendation = {
+                winner: 'new',
+                savings: savings,
+                message: `New Regime saves you ₹${formatINR(savings)}`
+            };
+        } else if (savings < 0) {
+            recommendation = {
+                winner: 'old',
+                savings: Math.abs(savings),
+                message: `Old Regime saves you ₹${formatINR(Math.abs(savings))}`
+            };
+        } else {
+            recommendation = {
+                winner: 'tie',
+                savings: 0,
+                message: 'Both regimes result in the same tax liability'
+            };
+        }
+
+        return { old: oldResult, new: newResult, recommendation };
+    }
+
+    // ──────────────────────────────────────────────────
+    // GENERATE TIPS
+    // ──────────────────────────────────────────────────
+
+    function generateTips(inputs, results) {
+        const tips = [];
+        const oldTax = results.old.totalTaxLiability;
+        const newTax = results.new.totalTaxLiability;
+
+        // 80C utilization
+        const used80C = inputs.section80C || 0;
+        if (used80C < 150000 && results.recommendation.winner === 'old') {
+            const remaining = 150000 - used80C;
+            tips.push({
+                icon: '💰',
+                text: `You have <strong>₹${formatINR(remaining)}</strong> unused under Section 80C. Consider investing in ELSS, PPF, or NPS to reduce your Old Regime tax further.`,
+                savings: `Save up to ₹${formatINR(Math.round(remaining * 0.3))}`
+            });
+        }
+
+        // 80D
+        const used80D = (inputs.section80D_self || 0) + (inputs.section80D_parents || 0);
+        if (used80D === 0 && inputs.grossSalary > 500000) {
+            tips.push({
+                icon: '🏥',
+                text: `You haven't claimed any <strong>health insurance premium</strong> under Section 80D. Self & parents' coverage can save up to ₹75,000 in deductions.`,
+                savings: `Save up to ₹${formatINR(Math.round(75000 * 0.3))}`
+            });
+        }
+
+        // NPS 80CCD(1B)
+        if (!inputs.section80CCD1B && results.recommendation.winner === 'old') {
+            tips.push({
+                icon: '🏦',
+                text: `Consider NPS (80CCD(1B)) for an <strong>additional ₹50,000</strong> deduction over 80C. This is one of the most effective tax-saving tools.`,
+                savings: `Save up to ₹${formatINR(Math.round(50000 * 0.3))}`
+            });
+        }
+
+        // HRA optimization
+        if (inputs.hraReceived > 0 && (!inputs.rentPaid || inputs.rentPaid === 0)) {
+            tips.push({
+                icon: '🏠',
+                text: `You receive HRA but haven't entered rent paid. If you're paying rent, <strong>claim HRA exemption</strong> to significantly reduce taxable salary under Old Regime.`,
+            });
+        }
+
+        // Home loan interest
+        if (!inputs.homeLoanInterest && inputs.rentalIncome > 0) {
+            tips.push({
+                icon: '🏡',
+                text: `If you have a home loan on your rented property, the <strong>interest deduction under Section 24(b)</strong> can create a significant loss from house property, reducing overall tax.`,
+            });
+        }
+
+        // New regime advantage explanation
+        if (results.recommendation.winner === 'new') {
+            tips.push({
+                icon: '✨',
+                text: `The <strong>New Regime</strong> is more beneficial for you because the lower slab rates and higher standard deduction (₹75,000) outweigh the deductions you're currently claiming.`,
+            });
+
+            if (results.recommendation.savings > 50000) {
+                tips.push({
+                    icon: '📊',
+                    text: `With savings of <strong>₹${formatINR(results.recommendation.savings)}</strong> under the New Regime, you might want to redirect your 80C investments (ELSS, PPF) into higher-return non-tax-saving instruments.`,
+                });
+            }
+        }
+
+        // Old regime advantage explanation
+        if (results.recommendation.winner === 'old' && results.recommendation.savings > 20000) {
+            tips.push({
+                icon: '🛡️',
+                text: `Your <strong>deductions totaling ₹${formatINR(results.old.totalDeductions)}</strong> make the Old Regime more beneficial. Continue maximizing your tax-saving investments.`,
+            });
+        }
+
+        // Rebate 87A tip
+        if (results.new.rebate87A > 0) {
+            tips.push({
+                icon: '🎯',
+                text: `You qualify for <strong>Section 87A rebate</strong> under the New Regime (income ≤ ₹12 lakh). This makes your normal income tax effectively ₹0.`,
+            });
+        }
+
+        // High income surcharge
+        if (results.old.surcharge > 0 || results.new.surcharge > 0) {
+            tips.push({
+                icon: '⚠️',
+                text: `Surcharge applies on your income. Under the New Regime, surcharge is <strong>capped at 25%</strong> vs 37% in the Old Regime for very high incomes.`,
+            });
+        }
+
+        // Employer NPS
+        if (!inputs.section80CCD2 && inputs.grossSalary > 0) {
+            tips.push({
+                icon: '💼',
+                text: `Ask your employer about <strong>NPS contribution under 80CCD(2)</strong>. This deduction is available in <strong>BOTH regimes</strong> — up to 10% of Basic + DA.`,
+            });
+        }
+
+        // Capital gains tip
+        if ((inputs.ltcg10 || 0) > 0 && (inputs.ltcg10 || 0) <= LTCG_112A_EXEMPTION) {
+            tips.push({
+                icon: '📈',
+                text: `Your LTCG from equity (₹${formatINR(inputs.ltcg10)}) is within the <strong>₹1.25 lakh exemption</strong>. Consider harvesting gains up to this limit annually to reset your cost basis.`,
+            });
+        }
+
+        return tips;
+    }
+
+    // ──────────────────────────────────────────────────
+    // UTILITY
+    // ──────────────────────────────────────────────────
+
+    function formatINR(amount) {
+        if (amount === 0) return '0';
+        const absAmount = Math.abs(Math.round(amount));
+        let result = absAmount.toString();
+
+        // Indian number system: last 3 digits, then groups of 2
+        const lastThree = result.substring(result.length - 3);
+        const otherDigits = result.substring(0, result.length - 3);
+
+        if (otherDigits !== '') {
+            result = otherDigits.replace(/\B(?=(\d{2})+(?!\d))/g, ',') + ',' + lastThree;
+        } else {
+            result = lastThree;
+        }
+
+        return amount < 0 ? `-${result}` : result;
+    }
+
+    // ──────────────────────────────────────────────────
+    // PUBLIC API
+    // ──────────────────────────────────────────────────
+
+    return {
+        calculateOldRegime,
+        calculateNewRegime,
+        compare,
+        generateTips,
+        formatINR,
+        calculateHRAExemption,
+        // Expose constants for UI
+        STANDARD_DEDUCTION_OLD,
+        STANDARD_DEDUCTION_NEW,
+        LTCG_112A_EXEMPTION,
+    };
+})();
+
+</script>
+<script>
+/**
+ * ============================================================
+ * ITR FORM SELECTOR — FY 2025-26
+ * Determines the correct ITR form based on user inputs
+ * ============================================================
+ */
+
+const FormSelector = (() => {
+    'use strict';
+
+    // ──────────────────────────────────────────────────
+    // ITR FORM DEFINITIONS
+    // ──────────────────────────────────────────────────
+
+    const FORMS = {
+        'ITR-1': {
+            name: 'Sahaj',
+            fullName: 'ITR-1 (Sahaj)',
+            description: 'Simplest form for resident individuals with straightforward income.',
+            color: '#06D6A0',
+        },
+        'ITR-2': {
+            name: '',
+            fullName: 'ITR-2',
+            description: 'For individuals/HUFs without business income but with capital gains, foreign assets, or complex scenarios.',
+            color: '#6C63FF',
+        },
+        'ITR-3': {
+            name: '',
+            fullName: 'ITR-3',
+            description: 'For individuals/HUFs with income from business or profession (non-presumptive).',
+            color: '#FF6B6B',
+        },
+        'ITR-4': {
+            name: 'Sugam',
+            fullName: 'ITR-4 (Sugam)',
+            description: 'For individuals/HUFs/firms with presumptive business income.',
+            color: '#FFD93D',
+        },
+    };
+
+    // ──────────────────────────────────────────────────
+    // DETERMINE ITR FORM
+    // ──────────────────────────────────────────────────
+
+    function selectForm(inputs) {
+        const reasons = [];
+        let form = 'ITR-1'; // Start with simplest
+
+        // Calculate total income for the ₹50L check
+        const totalIncome = (inputs.grossSalary || 0)
+            + (inputs.rentalIncome || 0)
+            + (inputs.stcg15 || 0)
+            + (inputs.stcgOther || 0)
+            + (inputs.ltcg10 || 0)
+            + (inputs.ltcg20 || 0)
+            + (inputs.interestIncome || 0)
+            + (inputs.dividendIncome || 0)
+            + (inputs.otherIncome || 0);
+
+        const hasCapitalGains = (inputs.stcg15 || 0) > 0
+            || (inputs.stcgOther || 0) > 0
+            || (inputs.ltcg10 || 0) > 0
+            || (inputs.ltcg20 || 0) > 0;
+
+        // Only small LTCG under 112A up to ₹1.25L is allowed in ITR-1
+        const hasSignificantCapitalGains = (inputs.stcg15 || 0) > 0
+            || (inputs.stcgOther || 0) > 0
+            || (inputs.ltcg10 || 0) > 125000
+            || (inputs.ltcg20 || 0) > 0;
+
+        const hasBusinessIncome = inputs.hasBusinessIncome === 'yes';
+        const isPresumptive = inputs.presumptiveTax === 'yes';
+        const isDirector = inputs.isDirector === 'yes';
+        const hasUnlistedShares = inputs.hasUnlistedShares === 'yes';
+        const hasForeignAssets = inputs.hasForeignAssets === 'yes';
+        const isNRI = inputs.residencyStatus === 'nri' || inputs.residencyStatus === 'rnor';
+        const isHUF = inputs.taxpayerType === 'huf';
+        const numProperties = parseInt(inputs.numProperties) || 0;
+        const agriculturalIncome = inputs.agriculturalIncome || 0;
+
+        // ─── Check for ITR-3 first (business income, non-presumptive) ───
+        if (hasBusinessIncome && !isPresumptive) {
+            form = 'ITR-3';
+            reasons.push('You have income from business/profession (non-presumptive)');
+            if (hasCapitalGains) reasons.push('Capital gains income reported');
+            if (isDirector) reasons.push('You are a director in a company');
+            if (hasForeignAssets) reasons.push('Foreign assets/income present');
+
+            return buildResult(form, reasons);
+        }
+
+        // ─── Check for ITR-4 (presumptive taxation) ───
+        if (hasBusinessIncome && isPresumptive) {
+            // ITR-4 has restrictions similar to ITR-1
+            if (isDirector || hasUnlistedShares || hasForeignAssets || isNRI || hasCapitalGains) {
+                // Can't use ITR-4, must use ITR-3
+                form = 'ITR-3';
+                reasons.push('Presumptive income but disqualified from ITR-4');
+                if (isDirector) reasons.push('Director in a company — ITR-4 not eligible');
+                if (hasUnlistedShares) reasons.push('Unlisted equity shares — ITR-4 not eligible');
+                if (hasForeignAssets) reasons.push('Foreign assets — ITR-4 not eligible');
+                if (hasCapitalGains) reasons.push('Capital gains — ITR-4 not eligible');
+                if (isNRI) reasons.push('NRI/RNOR status — ITR-4 not eligible');
+
+                return buildResult(form, reasons);
+            }
+
+            if (totalIncome > 5000000) {
+                form = 'ITR-3';
+                reasons.push('Total income exceeds ₹50 lakhs — ITR-4 not eligible');
+                return buildResult(form, reasons);
+            }
+
+            form = 'ITR-4';
+            reasons.push('Income from business/profession under presumptive taxation (44AD/44ADA/44AE)');
+            if (inputs.grossSalary > 0) reasons.push('Salary/pension income included');
+            if (inputs.rentalIncome > 0) reasons.push('Rental income from house property included');
+
+            return buildResult(form, reasons);
+        }
+
+        // ─── No business income — decide between ITR-1 and ITR-2 ───
+
+        // Conditions that require ITR-2 over ITR-1
+        let needsITR2 = false;
+
+        if (isHUF) {
+            needsITR2 = true;
+            reasons.push('HUF (Hindu Undivided Family) must file ITR-2 or higher');
+        }
+
+        if (isNRI) {
+            needsITR2 = true;
+            reasons.push('Non-Resident / RNOR status requires ITR-2');
+        }
+
+        if (hasSignificantCapitalGains) {
+            needsITR2 = true;
+            if ((inputs.stcg15 || 0) > 0) reasons.push('Short-term capital gains (Section 111A) present');
+            if ((inputs.stcgOther || 0) > 0) reasons.push('Short-term capital gains (other) present');
+            if ((inputs.ltcg10 || 0) > 125000) reasons.push('Long-term capital gains (112A) exceed ₹1.25 lakh');
+            if ((inputs.ltcg20 || 0) > 0) reasons.push('Long-term capital gains (other/property) present');
+        }
+
+        if (isDirector) {
+            needsITR2 = true;
+            reasons.push('You are a director in a company');
+        }
+
+        if (hasUnlistedShares) {
+            needsITR2 = true;
+            reasons.push('You hold unlisted equity shares');
+        }
+
+        if (hasForeignAssets) {
+            needsITR2 = true;
+            reasons.push('Foreign assets or foreign income present');
+        }
+
+        if (numProperties > 2) {
+            needsITR2 = true;
+            reasons.push('More than 2 house properties owned');
+        }
+
+        if (totalIncome > 5000000) {
+            needsITR2 = true;
+            reasons.push('Total income exceeds ₹50 lakhs');
+        }
+
+        if (agriculturalIncome > 5000) {
+            needsITR2 = true;
+            reasons.push('Agricultural income exceeds ₹5,000');
+        }
+
+        if (needsITR2) {
+            form = 'ITR-2';
+        } else {
+            form = 'ITR-1';
+            // ITR-1 eligibility reasons
+            reasons.push('Resident individual with salary/pension income');
+            if (numProperties <= 2 && (inputs.rentalIncome || 0) > 0) {
+                reasons.push('House property income from up to 2 properties');
+            }
+            if ((inputs.interestIncome || 0) > 0 || (inputs.dividendIncome || 0) > 0) {
+                reasons.push('Other sources (interest, dividend) income included');
+            }
+            if ((inputs.ltcg10 || 0) > 0 && (inputs.ltcg10 || 0) <= 125000) {
+                reasons.push('LTCG from equity within ₹1.25L exemption (allowed in ITR-1)');
+            }
+            reasons.push('Total income within ₹50 lakhs');
+        }
+
+        return buildResult(form, reasons);
+    }
+
+    // ──────────────────────────────────────────────────
+    // BUILD RESULT OBJECT
+    // ──────────────────────────────────────────────────
+
+    function buildResult(formKey, reasons) {
+        const formData = FORMS[formKey];
+        return {
+            form: formKey,
+            name: formData.name,
+            fullName: formData.fullName,
+            description: formData.description,
+            color: formData.color,
+            reasons: reasons.length > 0 ? reasons : ['Standard eligibility criteria met'],
+        };
+    }
+
+    // ──────────────────────────────────────────────────
+    // PUBLIC API
+    // ──────────────────────────────────────────────────
+
+    return {
+        selectForm,
+        FORMS,
+    };
+})();
+
+</script>
+<script>
+/**
+ * ============================================================
+ * UI CONTROLLER — Renders results, manages DOM updates
+ * ============================================================
+ */
+
+const UIController = (() => {
+    'use strict';
+
+    // ──────────────────────────────────────────────────
+    // RENDER ITR FORM RESULT
+    // ──────────────────────────────────────────────────
+
+    function renderITRResult(formResult) {
+        const container = document.getElementById('itrResult');
+        
+        const reasonsHTML = formResult.reasons.map(r => `<li>${r}</li>`).join('');
+        
+        container.innerHTML = `
+            <div class="itr-form-badge" style="border-color: ${formResult.color}40; background: ${formResult.color}10;">
+                <div>
+                    <div class="itr-form-number" style="background: linear-gradient(135deg, ${formResult.color}, ${formResult.color}99); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">${formResult.form}</div>
+                    ${formResult.name ? `<div class="itr-form-name">${formResult.name}</div>` : ''}
+                </div>
+                <div>
+                    <div style="font-weight: 700; font-size: 1.1rem; margin-bottom: 4px;">${formResult.fullName}</div>
+                    <div style="font-size: 0.85rem; color: var(--text-secondary);">${formResult.description}</div>
+                </div>
+            </div>
+            <div>
+                <div style="font-size: 0.82rem; font-weight: 600; color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 8px;">Why this form?</div>
+                <ul class="itr-reasons">${reasonsHTML}</ul>
+            </div>
+        `;
+    }
+
+    // ──────────────────────────────────────────────────
+    // RENDER REGIME COMPARISON
+    // ──────────────────────────────────────────────────
+
+    function renderComparison(results) {
+        const { old: oldResult, new: newResult, recommendation } = results;
+        const container = document.getElementById('comparisonGrid');
+        const badge = document.getElementById('winnerBadge');
+
+        // Winner badge
+        if (recommendation.winner === 'old') {
+            badge.className = 'winner-badge old-wins';
+            badge.textContent = '🏆 Old Regime Wins';
+        } else if (recommendation.winner === 'new') {
+            badge.className = 'winner-badge new-wins';
+            badge.textContent = '🏆 New Regime Wins';
+        } else {
+            badge.className = 'winner-badge tie';
+            badge.textContent = '🤝 It\'s a Tie';
+        }
+
+        const oldIsWinner = recommendation.winner === 'old';
+        const newIsWinner = recommendation.winner === 'new';
+
+        container.innerHTML = `
+            <div class="comparison-column ${oldIsWinner ? 'winner' : ''}">
+                <div class="comparison-column-header">
+                    <div class="comparison-column-title">Old Regime</div>
+                    <div class="comparison-column-amount">₹${TaxEngine.formatINR(oldResult.totalTaxLiability)}</div>
+                    <div style="font-size: 0.75rem; color: var(--text-tertiary); margin-top: 4px;">
+                        Effective Rate: ${oldResult.effectiveTaxRate}%
+                    </div>
+                </div>
+                <div class="comparison-row">
+                    <span class="comparison-row-label">Gross Income</span>
+                    <span class="comparison-row-value">₹${TaxEngine.formatINR(oldResult.grossSalary + (oldResult.otherIncome || 0))}</span>
+                </div>
+                <div class="comparison-row">
+                    <span class="comparison-row-label">Standard Deduction</span>
+                    <span class="comparison-row-value">- ₹${TaxEngine.formatINR(oldResult.standardDeduction)}</span>
+                </div>
+                ${oldResult.hraExemption > 0 ? `
+                <div class="comparison-row">
+                    <span class="comparison-row-label">HRA Exemption</span>
+                    <span class="comparison-row-value">- ₹${TaxEngine.formatINR(oldResult.hraExemption)}</span>
+                </div>` : ''}
+                <div class="comparison-row">
+                    <span class="comparison-row-label">Deductions (80C, 80D etc.)</span>
+                    <span class="comparison-row-value">- ₹${TaxEngine.formatINR(oldResult.totalDeductions)}</span>
+                </div>
+                <div class="comparison-row">
+                    <span class="comparison-row-label">Taxable Income</span>
+                    <span class="comparison-row-value">₹${TaxEngine.formatINR(oldResult.taxableIncome)}</span>
+                </div>
+                <div class="comparison-row">
+                    <span class="comparison-row-label">Tax (Slabs)</span>
+                    <span class="comparison-row-value">₹${TaxEngine.formatINR(oldResult.normalTax)}</span>
+                </div>
+                ${oldResult.specialRateTax > 0 ? `
+                <div class="comparison-row">
+                    <span class="comparison-row-label">Tax (Capital Gains)</span>
+                    <span class="comparison-row-value">₹${TaxEngine.formatINR(oldResult.specialRateTax)}</span>
+                </div>` : ''}
+                ${oldResult.rebate87A > 0 ? `
+                <div class="comparison-row">
+                    <span class="comparison-row-label">Rebate u/s 87A</span>
+                    <span class="comparison-row-value" style="color: var(--accent-secondary);">- ₹${TaxEngine.formatINR(oldResult.rebate87A)}</span>
+                </div>` : ''}
+                ${oldResult.surcharge > 0 ? `
+                <div class="comparison-row">
+                    <span class="comparison-row-label">Surcharge (${(oldResult.surchargeRate * 100).toFixed(0)}%)</span>
+                    <span class="comparison-row-value">₹${TaxEngine.formatINR(oldResult.surcharge)}</span>
+                </div>` : ''}
+                <div class="comparison-row">
+                    <span class="comparison-row-label">Cess (4%)</span>
+                    <span class="comparison-row-value">₹${TaxEngine.formatINR(oldResult.cess)}</span>
+                </div>
+                <div class="comparison-row total">
+                    <span class="comparison-row-label">Total Tax</span>
+                    <span class="comparison-row-value" ${oldIsWinner ? 'style="color: var(--accent-secondary);"' : ''}>₹${TaxEngine.formatINR(oldResult.totalTaxLiability)}</span>
+                </div>
+            </div>
+            <div class="comparison-column ${newIsWinner ? 'winner' : ''}">
+                <div class="comparison-column-header">
+                    <div class="comparison-column-title">New Regime</div>
+                    <div class="comparison-column-amount">₹${TaxEngine.formatINR(newResult.totalTaxLiability)}</div>
+                    <div style="font-size: 0.75rem; color: var(--text-tertiary); margin-top: 4px;">
+                        Effective Rate: ${newResult.effectiveTaxRate}%
+                    </div>
+                </div>
+                <div class="comparison-row">
+                    <span class="comparison-row-label">Gross Income</span>
+                    <span class="comparison-row-value">₹${TaxEngine.formatINR(newResult.grossSalary + (newResult.otherIncome || 0))}</span>
+                </div>
+                <div class="comparison-row">
+                    <span class="comparison-row-label">Standard Deduction</span>
+                    <span class="comparison-row-value">- ₹${TaxEngine.formatINR(newResult.standardDeduction)}</span>
+                </div>
+                <div class="comparison-row">
+                    <span class="comparison-row-label">Deductions</span>
+                    <span class="comparison-row-value">- ₹${TaxEngine.formatINR(newResult.totalDeductions)}</span>
+                </div>
+                <div class="comparison-row">
+                    <span class="comparison-row-label">Taxable Income</span>
+                    <span class="comparison-row-value">₹${TaxEngine.formatINR(newResult.taxableIncome)}</span>
+                </div>
+                <div class="comparison-row">
+                    <span class="comparison-row-label">Tax (Slabs)</span>
+                    <span class="comparison-row-value">₹${TaxEngine.formatINR(newResult.normalTax)}</span>
+                </div>
+                ${newResult.specialRateTax > 0 ? `
+                <div class="comparison-row">
+                    <span class="comparison-row-label">Tax (Capital Gains)</span>
+                    <span class="comparison-row-value">₹${TaxEngine.formatINR(newResult.specialRateTax)}</span>
+                </div>` : ''}
+                ${newResult.rebate87A > 0 ? `
+                <div class="comparison-row">
+                    <span class="comparison-row-label">Rebate u/s 87A</span>
+                    <span class="comparison-row-value" style="color: var(--accent-secondary);">- ₹${TaxEngine.formatINR(newResult.rebate87A)}</span>
+                </div>` : ''}
+                ${newResult.surcharge > 0 ? `
+                <div class="comparison-row">
+                    <span class="comparison-row-label">Surcharge (${(newResult.surchargeRate * 100).toFixed(0)}%)</span>
+                    <span class="comparison-row-value">₹${TaxEngine.formatINR(newResult.surcharge)}</span>
+                </div>` : ''}
+                <div class="comparison-row">
+                    <span class="comparison-row-label">Cess (4%)</span>
+                    <span class="comparison-row-value">₹${TaxEngine.formatINR(newResult.cess)}</span>
+                </div>
+                <div class="comparison-row total">
+                    <span class="comparison-row-label">Total Tax</span>
+                    <span class="comparison-row-value" ${newIsWinner ? 'style="color: var(--accent-secondary);"' : ''}>₹${TaxEngine.formatINR(newResult.totalTaxLiability)}</span>
+                </div>
+            </div>
+            ${recommendation.savings > 0 ? `
+            <div class="savings-callout">
+                <div>
+                    <div class="savings-callout-amount">₹${TaxEngine.formatINR(recommendation.savings)}</div>
+                    <div class="savings-callout-text">${recommendation.message}</div>
+                </div>
+            </div>` : `
+            <div class="savings-callout">
+                <div>
+                    <div class="savings-callout-text">${recommendation.message}</div>
+                </div>
+            </div>`}
+        `;
+    }
+
+    // ──────────────────────────────────────────────────
+    // RENDER DETAILED BREAKDOWN
+    // ──────────────────────────────────────────────────
+
+    function renderBreakdown(results) {
+        renderBreakdownForRegime(results.old, 'breakdownOld');
+        renderBreakdownForRegime(results.new, 'breakdownNew');
+    }
+
+    function renderBreakdownForRegime(result, containerId) {
+        const container = document.getElementById(containerId);
+        const isOld = result.regime === 'old';
+
+        let rows = '';
+
+        // Income section
+        rows += sectionHeader('Income');
+        rows += breakdownRow('Gross Salary / Pension', result.grossSalary);
+        rows += breakdownRow(`Standard Deduction`, -result.standardDeduction, 'negative');
+        if (isOld && result.hraExemption > 0) {
+            rows += breakdownRow('HRA Exemption', -result.hraExemption, 'negative');
+        }
+        rows += breakdownRow('Net Salary Income', result.netSalaryIncome);
+
+        if (result.housePropertyIncome !== 0) {
+            rows += breakdownRow('House Property Income', result.housePropertyIncome,
+                result.housePropertyIncome < 0 ? 'negative' : '');
+        }
+
+        if (result.otherIncome > 0) {
+            rows += breakdownRow('Other Income', result.otherIncome);
+        }
+
+        if (result.capitalGains.stcgOther > 0) {
+            rows += breakdownRow('STCG (Slab Rate)', result.capitalGains.stcgOther);
+        }
+
+        rows += breakdownRow('Gross Total Income', result.grossTotalIncome, '', true);
+
+        // Deductions section
+        if (result.totalDeductions > 0) {
+            rows += sectionHeader('Deductions');
+            for (const [key, value] of Object.entries(result.deductions)) {
+                if (value > 0) {
+                    rows += breakdownRow(`Section ${key}`, -value, 'negative');
+                }
+            }
+            rows += breakdownRow('Total Deductions', -result.totalDeductions, 'negative', true);
+        }
+
+        // Tax calculation
+        rows += sectionHeader('Tax Computation');
+        rows += breakdownRow('Taxable Income (Normal)', result.taxableIncome);
+
+        // Slab breakdown
+        if (result.slabBreakdown && result.slabBreakdown.length > 0) {
+            for (const slab of result.slabBreakdown) {
+                const rate = (slab.rate * 100).toFixed(0);
+                const range = `₹${TaxEngine.formatINR(slab.min)} – ₹${TaxEngine.formatINR(slab.max)}`;
+                rows += breakdownRow(`  ${range} @ ${rate}%`, slab.tax, '', false, true);
+            }
+        }
+
+        rows += breakdownRow('Tax on Normal Income', result.normalTax);
+
+        // Special rate taxes
+        if (result.specialRateTax > 0) {
+            rows += sectionHeader('Special Rate Taxes');
+            for (const [key, value] of Object.entries(result.specialRateBreakdown || {})) {
+                if (value > 0) {
+                    rows += breakdownRow(key, value);
+                }
+            }
+        }
+
+        rows += breakdownRow('Total Tax Before Rebate', result.totalTaxBeforeRebate);
+
+        if (result.rebate87A > 0) {
+            rows += breakdownRow('Less: Rebate u/s 87A', -result.rebate87A, 'positive');
+        }
+
+        rows += breakdownRow('Tax After Rebate', result.taxAfterRebate);
+
+        if (result.surcharge > 0) {
+            rows += breakdownRow(`Surcharge (${(result.surchargeRate * 100).toFixed(0)}%)`, result.surcharge);
+        }
+
+        rows += breakdownRow('Health & Education Cess (4%)', result.cess);
+
+        // Total
+        rows += `<tr class="total-row">
+            <td>Total Tax Liability</td>
+            <td>₹${TaxEngine.formatINR(result.totalTaxLiability)}</td>
+        </tr>`;
+
+        container.innerHTML = `<table class="breakdown-table">${rows}</table>`;
+    }
+
+    function sectionHeader(title) {
+        return `<tr class="section-header"><td colspan="2">${title}</td></tr>`;
+    }
+
+    function breakdownRow(label, value, cssClass = '', isBold = false, isSubRow = false) {
+        const formattedValue = value < 0
+            ? `- ₹${TaxEngine.formatINR(Math.abs(value))}`
+            : `₹${TaxEngine.formatINR(value)}`;
+
+        const style = isBold ? 'font-weight: 700;' : '';
+        const labelStyle = isSubRow ? 'font-size: 0.78rem; color: var(--text-muted); padding-left: 1.5rem;' : '';
+        const valueClass = cssClass ? ` class="${cssClass}"` : '';
+
+        return `<tr style="${style}">
+            <td style="${labelStyle}">${label}</td>
+            <td${valueClass}>${formattedValue}</td>
+        </tr>`;
+    }
+
+    // ──────────────────────────────────────────────────
+    // RENDER TIPS
+    // ──────────────────────────────────────────────────
+
+    function renderTips(tips) {
+        const container = document.getElementById('tipsContent');
+
+        if (tips.length === 0) {
+            container.innerHTML = `
+                <div class="tip-item">
+                    <span class="tip-icon">✅</span>
+                    <span class="tip-text">Your tax situation looks well optimized! No additional suggestions at this time.</span>
+                </div>
+            `;
+            return;
+        }
+
+        container.innerHTML = tips.map(tip => `
+            <div class="tip-item">
+                <span class="tip-icon">${tip.icon}</span>
+                <div>
+                    <span class="tip-text">${tip.text}</span>
+                    ${tip.savings ? `<div style="margin-top: 6px;"><span class="tip-savings">${tip.savings}</span></div>` : ''}
+                </div>
+            </div>
+        `).join('');
+    }
+
+    // ──────────────────────────────────────────────────
+    // GENERATE PDF REPORT
+    // ──────────────────────────────────────────────────
+
+    function generateReport(formResult, results, tips) {
+        const { old: o, new: n, recommendation: rec } = results;
+        const now = new Date();
+        const dateStr = now.toLocaleDateString('en-IN', {
+            year: 'numeric', month: 'long', day: 'numeric',
+            hour: '2-digit', minute: '2-digit'
+        });
+
+        let report = `
+═══════════════════════════════════════════════════════════
+       ITR FORM SELECTOR & REGIME COMPARATOR REPORT
+                    FY 2025-26 (AY 2026-27)
+═══════════════════════════════════════════════════════════
+Generated: ${dateStr}
+Disclaimer: For informational purposes only. Consult a CA.
+
+───────────────────────────────────────────────────────────
+  RECOMMENDED ITR FORM: ${formResult.fullName}
+───────────────────────────────────────────────────────────
+${formResult.description}
+
+Reasons:
+${formResult.reasons.map(r => `  ✓ ${r}`).join('\n')}
+
+───────────────────────────────────────────────────────────
+  REGIME COMPARISON
+───────────────────────────────────────────────────────────
+
+                        OLD REGIME       NEW REGIME
+─────────────────────  ─────────────    ─────────────
+Gross Salary           ₹${padNum(o.grossSalary)}    ₹${padNum(n.grossSalary)}
+Standard Deduction     ₹${padNum(o.standardDeduction)}    ₹${padNum(n.standardDeduction)}
+${o.hraExemption > 0 ? `HRA Exemption          ₹${padNum(o.hraExemption)}    ₹0\n` : ''}Net Salary Income      ₹${padNum(o.netSalaryIncome)}    ₹${padNum(n.netSalaryIncome)}
+Total Deductions       ₹${padNum(o.totalDeductions)}    ₹${padNum(n.totalDeductions)}
+Taxable Income         ₹${padNum(o.taxableIncome)}    ₹${padNum(n.taxableIncome)}
+Tax on Normal Income   ₹${padNum(o.normalTax)}    ₹${padNum(n.normalTax)}
+${o.specialRateTax > 0 || n.specialRateTax > 0 ? `Tax on Capital Gains   ₹${padNum(o.specialRateTax)}    ₹${padNum(n.specialRateTax)}\n` : ''}Rebate u/s 87A         ₹${padNum(o.rebate87A)}    ₹${padNum(n.rebate87A)}
+Surcharge              ₹${padNum(o.surcharge)}    ₹${padNum(n.surcharge)}
+Cess (4%)              ₹${padNum(o.cess)}    ₹${padNum(n.cess)}
+─────────────────────  ─────────────    ─────────────
+TOTAL TAX              ₹${padNum(o.totalTaxLiability)}    ₹${padNum(n.totalTaxLiability)}
+Effective Tax Rate     ${o.effectiveTaxRate}%${' '.repeat(Math.max(1, 13 - o.effectiveTaxRate.length - 1))}${n.effectiveTaxRate}%
+
+► RECOMMENDATION: ${rec.message}
+
+───────────────────────────────────────────────────────────
+  TAX SAVING TIPS
+───────────────────────────────────────────────────────────
+${tips.map((t, i) => `${i + 1}. ${stripHTML(t.text)}${t.savings ? ` [${t.savings}]` : ''}`).join('\n')}
+
+═══════════════════════════════════════════════════════════
+  This report was generated locally in your browser.
+  No data was stored or transmitted. 
+  Built for Indian Taxpayers • FY 2025-26 (AY 2026-27)
+═══════════════════════════════════════════════════════════
+`;
+
+        return report;
+    }
+
+    function padNum(num) {
+        return TaxEngine.formatINR(num).padStart(12, ' ');
+    }
+
+    function stripHTML(html) {
+        const tmp = document.createElement('div');
+        tmp.innerHTML = html;
+        return tmp.textContent || tmp.innerText || '';
+    }
+
+    // ──────────────────────────────────────────────────
+    // PUBLIC API
+    // ──────────────────────────────────────────────────
+
+    return {
+        renderITRResult,
+        renderComparison,
+        renderBreakdown,
+        renderTips,
+        generateReport,
+    };
+})();
+
+</script>
+<script>
+/**
+ * ============================================================
+ * APP CONTROLLER — Main application logic & event handlers
+ * All events wired via addEventListener (CSP-compliant, no inline handlers)
+ * ============================================================
+ */
+
+(function () {
+    'use strict';
+
+    // ──────────────────────────────────────────────────
+    // STATE
+    // ──────────────────────────────────────────────────
+
+    let currentStep = 1;
+    let lastResults = null;
+    let lastFormResult = null;
+    let lastTips = null;
+
+    // ──────────────────────────────────────────────────
+    // HERO & NAVIGATION
+    // ──────────────────────────────────────────────────
+
+    function startCalculator() {
+        document.getElementById('heroSection').style.display = 'none';
+        document.getElementById('calculatorApp').classList.add('visible');
+        document.getElementById('footer').style.display = 'block';
+        currentStep = 1;
+        updateProgressBar();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function goToHero() {
+        document.getElementById('heroSection').style.display = 'flex';
+        document.getElementById('calculatorApp').classList.remove('visible');
+        document.getElementById('footer').style.display = 'none';
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function startOver() {
+        document.querySelectorAll('input[type="text"]').forEach(input => {
+            input.value = '';
+        });
+        document.querySelectorAll('select').forEach(select => {
+            select.selectedIndex = 0;
+        });
+        document.querySelectorAll('.toggle-group').forEach(group => {
+            group.querySelectorAll('.toggle-btn').forEach((btn, i) => {
+                btn.classList.toggle('active', i === 0);
+            });
+        });
+        document.querySelectorAll('input[type="hidden"]').forEach(input => {
+            const resetIds = ['isMetroCity', 'hasBusinessIncome', 'isDirector', 'hasUnlistedShares', 'hasForeignAssets', 'presumptiveTax'];
+            if (resetIds.includes(input.id)) input.value = 'no';
+        });
+        document.getElementById('presumptiveGroup').style.display = 'none';
+        currentStep = 1;
+        showStep(1);
+        updateProgressBar();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    // ──────────────────────────────────────────────────
+    // STEP NAVIGATION
+    // ──────────────────────────────────────────────────
+
+    function showStep(step) {
+        document.querySelectorAll('.step-panel').forEach(panel => {
+            panel.classList.remove('active');
+        });
+        const panel = document.getElementById(`step${step}`);
+        if (panel) panel.classList.add('active');
+        currentStep = step;
+        updateProgressBar();
+    }
+
+    function updateProgressBar() {
+        const fill = document.getElementById('progressFill');
+        if (fill) fill.style.width = `${(currentStep / 4) * 100}%`;
+
+        document.querySelectorAll('.progress-step').forEach(step => {
+            const stepNum = parseInt(step.dataset.step);
+            step.classList.remove('active', 'completed');
+            if (stepNum === currentStep) step.classList.add('active');
+            else if (stepNum < currentStep) step.classList.add('completed');
+        });
+    }
+
+    // ──────────────────────────────────────────────────
+    // TOGGLE OPTIONS (Yes/No buttons)
+    // ──────────────────────────────────────────────────
+
+    function handleToggle(btn) {
+        const inputId = btn.dataset.inputId;
+        const group = btn.parentElement;
+        group.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+
+        const hiddenInput = document.getElementById(inputId);
+        if (hiddenInput) hiddenInput.value = btn.dataset.value;
+
+        if (inputId === 'hasBusinessIncome') {
+            const presumptiveGroup = document.getElementById('presumptiveGroup');
+            presumptiveGroup.style.display = btn.dataset.value === 'yes' ? 'block' : 'none';
+            if (btn.dataset.value === 'no') {
+                document.getElementById('presumptiveTax').value = 'no';
+                // Reset presumptive toggle to "No"
+                const presGroup = document.getElementById('presumptiveGroup');
+                if (presGroup) {
+                    presGroup.querySelectorAll('.toggle-btn').forEach((b, i) => {
+                        b.classList.toggle('active', i === 0);
+                    });
+                }
+            }
+        }
+    }
+
+    // ──────────────────────────────────────────────────
+    // BREAKDOWN TAB TOGGLE
+    // ──────────────────────────────────────────────────
+
+    function switchBreakdownTab(regime, btn) {
+        document.querySelectorAll('.breakdown-tab').forEach(t => t.classList.remove('active'));
+        btn.classList.add('active');
+        document.getElementById('breakdownOld').style.display = regime === 'old' ? 'block' : 'none';
+        document.getElementById('breakdownNew').style.display = regime === 'new' ? 'block' : 'none';
+    }
+
+    // ──────────────────────────────────────────────────
+    // CURRENCY FORMATTING (Indian Numbering)
+    // ──────────────────────────────────────────────────
+
+    function formatCurrencyInput(input) {
+        let value = input.value.replace(/[^0-9]/g, '');
+        if (value.length === 0) { input.value = ''; return; }
+        input.value = TaxEngine.formatINR(parseInt(value, 10));
+    }
+
+    function parseFormattedNumber(str) {
+        if (!str || str.trim() === '') return 0;
+        return parseInt(str.replace(/,/g, ''), 10) || 0;
+    }
+
+    // ──────────────────────────────────────────────────
+    // COLLECT ALL INPUTS
+    // ──────────────────────────────────────────────────
+
+    function collectInputs() {
+        return {
+            ageGroup: document.getElementById('ageGroup').value,
+            residencyStatus: document.getElementById('residencyStatus').value,
+            taxpayerType: document.getElementById('taxpayerType').value,
+            hasBusinessIncome: document.getElementById('hasBusinessIncome').value,
+            presumptiveTax: document.getElementById('presumptiveTax').value,
+            isDirector: document.getElementById('isDirector').value,
+            hasUnlistedShares: document.getElementById('hasUnlistedShares').value,
+            hasForeignAssets: document.getElementById('hasForeignAssets').value,
+
+            grossSalary: parseFormattedNumber(document.getElementById('grossSalary').value),
+            basicSalary: parseFormattedNumber(document.getElementById('basicSalary').value),
+            hraReceived: parseFormattedNumber(document.getElementById('hraReceived').value),
+            rentPaid: parseFormattedNumber(document.getElementById('rentPaid').value),
+            isMetro: document.getElementById('isMetroCity').value === 'yes',
+            rentalIncome: parseFormattedNumber(document.getElementById('rentalIncome').value),
+            propertyTax: parseFormattedNumber(document.getElementById('propertyTax').value),
+            homeLoanInterest: parseFormattedNumber(document.getElementById('homeLoanInterest').value),
+            numProperties: document.getElementById('numProperties').value,
+            stcg15: parseFormattedNumber(document.getElementById('stcg15').value),
+            stcgOther: parseFormattedNumber(document.getElementById('stcgOther').value),
+            ltcg10: parseFormattedNumber(document.getElementById('ltcg10').value),
+            ltcg20: parseFormattedNumber(document.getElementById('ltcg20').value),
+            interestIncome: parseFormattedNumber(document.getElementById('interestIncome').value),
+            dividendIncome: parseFormattedNumber(document.getElementById('dividendIncome').value),
+            otherIncome: parseFormattedNumber(document.getElementById('otherIncome').value),
+            agriculturalIncome: parseFormattedNumber(document.getElementById('agriculturalIncome').value),
+
+            section80C: parseFormattedNumber(document.getElementById('section80C').value),
+            section80CCD1B: parseFormattedNumber(document.getElementById('section80CCD1B').value),
+            section80CCD2: parseFormattedNumber(document.getElementById('section80CCD2').value),
+            section80D_self: parseFormattedNumber(document.getElementById('section80D_self').value),
+            section80D_parents: parseFormattedNumber(document.getElementById('section80D_parents').value),
+            preventiveHealth: parseFormattedNumber(document.getElementById('preventiveHealth').value),
+            section80E: parseFormattedNumber(document.getElementById('section80E').value),
+            section80G: parseFormattedNumber(document.getElementById('section80G').value),
+            section80TTA: parseFormattedNumber(document.getElementById('section80TTA').value),
+        };
+    }
+
+    // ──────────────────────────────────────────────────
+    // CALCULATE & SHOW RESULTS
+    // ──────────────────────────────────────────────────
+
+    function calculateAndShowResults() {
+        const inputs = collectInputs();
+        lastFormResult = FormSelector.selectForm(inputs);
+        lastResults = TaxEngine.compare(inputs);
+        lastTips = TaxEngine.generateTips(inputs, lastResults);
+
+        UIController.renderITRResult(lastFormResult);
+        UIController.renderComparison(lastResults);
+        UIController.renderBreakdown(lastResults);
+        UIController.renderTips(lastTips);
+
+        showStep(4);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    // ──────────────────────────────────────────────────
+    // DOWNLOAD REPORT
+    // ──────────────────────────────────────────────────
+
+    function downloadReport() {
+        if (!lastResults || !lastFormResult) return;
+        const report = UIController.generateReport(lastFormResult, lastResults, lastTips || []);
+        const blob = new Blob([report], { type: 'text/plain;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `ITR_Tax_Report_FY2025-26_${new Date().toISOString().slice(0, 10)}.txt`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    }
+
+    // ──────────────────────────────────────────────────
+    // HERO ANIMATIONS (Counter Animation)
+    // ──────────────────────────────────────────────────
+
+    function animateCounters() {
+        document.querySelectorAll('.stat-number[data-count]').forEach(counter => {
+            const target = parseInt(counter.dataset.count);
+            const duration = 1500;
+            let startTime = null;
+            function tick(timestamp) {
+                if (!startTime) startTime = timestamp;
+                const progress = Math.min((timestamp - startTime) / duration, 1);
+                const eased = progress === 1 ? 1 : 1 - Math.pow(2, -10 * progress);
+                counter.textContent = Math.round(eased * target);
+                if (progress < 1) requestAnimationFrame(tick);
+            }
+            requestAnimationFrame(tick);
+        });
+    }
+
+    // ──────────────────────────────────────────────────
+    // WIRE ALL EVENT LISTENERS (CSP-compliant — no onclick in HTML)
+    // ──────────────────────────────────────────────────
+
+    function wireEvents() {
+        // Hero CTA
+        const startBtn = document.getElementById('startButton');
+        if (startBtn) startBtn.addEventListener('click', startCalculator);
+
+        // Step 1 → Back to hero
+        const backToHeroBtn = document.querySelector('#step1 .btn-secondary');
+        if (backToHeroBtn) backToHeroBtn.addEventListener('click', goToHero);
+
+        // Step 1 → Continue to step 2
+        const step1Next = document.querySelector('#step1 .btn-primary');
+        if (step1Next) step1Next.addEventListener('click', () => { showStep(2); window.scrollTo({ top: 0, behavior: 'smooth' }); });
+
+        // Step 2 → Back to step 1
+        const step2Back = document.querySelector('#step2 .btn-secondary');
+        if (step2Back) step2Back.addEventListener('click', () => { showStep(1); window.scrollTo({ top: 0, behavior: 'smooth' }); });
+
+        // Step 2 → Continue to step 3
+        const step2Next = document.querySelector('#step2 .btn-primary');
+        if (step2Next) step2Next.addEventListener('click', () => { showStep(3); window.scrollTo({ top: 0, behavior: 'smooth' }); });
+
+        // Step 3 → Back to step 2
+        const step3Back = document.querySelector('#step3 .btn-secondary');
+        if (step3Back) step3Back.addEventListener('click', () => { showStep(2); window.scrollTo({ top: 0, behavior: 'smooth' }); });
+
+        // Step 3 → Calculate
+        const calcBtn = document.querySelector('.btn-calculate');
+        if (calcBtn) calcBtn.addEventListener('click', calculateAndShowResults);
+
+        // Step 4 → Modify Inputs (go to step 3)
+        const step4Back = document.querySelector('#step4 .btn-secondary');
+        if (step4Back) step4Back.addEventListener('click', () => { showStep(3); window.scrollTo({ top: 0, behavior: 'smooth' }); });
+
+        // Step 4 → Download report
+        const downloadBtn = document.querySelector('#step4 .btn-primary');
+        if (downloadBtn) downloadBtn.addEventListener('click', downloadReport);
+
+        // Step 4 → Start over
+        const startOverBtn = document.querySelector('.btn-ghost');
+        if (startOverBtn) startOverBtn.addEventListener('click', startOver);
+
+        // Breakdown tabs
+        document.querySelectorAll('.breakdown-tab').forEach(tab => {
+            tab.addEventListener('click', function () {
+                const regime = this.textContent.toLowerCase().includes('old') ? 'old' : 'new';
+                switchBreakdownTab(regime, this);
+            });
+        });
+
+        // Toggle buttons (Yes/No) — use data-input-id attribute
+        document.querySelectorAll('.toggle-btn').forEach(btn => {
+            btn.addEventListener('click', function () {
+                handleToggle(this);
+            });
+        });
+
+        // Currency inputs — format on input
+        document.querySelectorAll('input[type="text"]').forEach(input => {
+            input.addEventListener('input', function () {
+                formatCurrencyInput(this);
+            });
+        });
+
+        // Keyboard navigation (Tab-through with Enter)
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && e.target.tagName === 'INPUT') {
+                e.preventDefault();
+                const inputs = Array.from(document.querySelectorAll(
+                    `.step-panel.active input[type="text"], .step-panel.active select`
+                ));
+                const currentIndex = inputs.indexOf(e.target);
+                if (currentIndex < inputs.length - 1) inputs[currentIndex + 1].focus();
+            }
+        });
+    }
+
+    // ──────────────────────────────────────────────────
+    // INITIALIZATION
+    // ──────────────────────────────────────────────────
+
+    function init() {
+        document.getElementById('footer').style.display = 'none';
+        animateCounters();
+        wireEvents();
+
+        console.log(
+            '%c🧾 ITR Form Selector + Regime Comparator %c FY 2025-26 ',
+            'background: #6C63FF; color: #fff; padding: 4px 8px; border-radius: 4px 0 0 4px; font-weight: bold;',
+            'background: #06D6A0; color: #000; padding: 4px 8px; border-radius: 0 4px 4px 0; font-weight: bold;'
+        );
+        console.log(
+            '%c✓ All calculations run locally in your browser. Zero data stored.',
+            'color: #06D6A0; font-style: italic;'
+        );
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+    } else {
+        init();
+    }
+})();
+/* Netlify cache bust: Sun Apr  5 16:49:50 IST 2026 */
+
+</script>
 </body>
 </html>
