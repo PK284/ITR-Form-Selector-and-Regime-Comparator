@@ -15,6 +15,8 @@ const UIController = (() => {
         const container = document.getElementById('itrResult');
         
         const reasonsHTML = formResult.reasons.map(r => `<li>${r}</li>`).join('');
+        const warningsHTML = (formResult.warnings && formResult.warnings.length > 0) ? 
+            formResult.warnings.map(w => `<li style="color:var(--error);">${w}</li>`).join('') : '';
         
         container.innerHTML = `
             <div class="itr-form-badge" style="border-color: ${formResult.color}40; background: ${formResult.color}10;">
@@ -30,6 +32,7 @@ const UIController = (() => {
             <div>
                 <div style="font-size: 0.82rem; font-weight: 600; color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 8px;">Why this form?</div>
                 <ul class="itr-reasons">${reasonsHTML}</ul>
+                ${warningsHTML ? `<div style="font-size: 0.82rem; font-weight: 600; color: var(--error); text-transform: uppercase; letter-spacing: 0.04em; margin-top: 16px; margin-bottom: 8px;">Important Warnings</div><ul class="itr-reasons" style="background-color: #ff00000a; padding: 12px 12px 12px 28px; border-radius: 6px;">${warningsHTML}</ul>` : ''}
             </div>
         `;
     }

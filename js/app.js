@@ -38,7 +38,7 @@
     }
 
     function startOver() {
-        document.querySelectorAll('input[type="text"]').forEach(input => {
+        document.querySelectorAll('input[type="number"], input[type="text"]').forEach(input => {
             input.value = '';
         });
         document.querySelectorAll('select').forEach(select => {
@@ -50,13 +50,15 @@
             });
         });
         document.querySelectorAll('input[type="hidden"]').forEach(input => {
-            const resetIds = ['isMetroCity', 'hasBusinessIncome', 'isDirector', 'hasUnlistedShares', 'hasForeignAssets', 'presumptiveTax'];
+            const resetIds = ['isMetroCity', 'hasBusinessIncome', 'isDirector', 'hasUnlistedShares', 'hasForeignAssets', 'presumptiveTax', 'parentsSenior'];
             if (resetIds.includes(input.id)) input.value = 'no';
         });
-        document.getElementById('presumptiveGroup').style.display = 'none';
+        const presumptiveGroup = document.getElementById('presumptiveGroup');
+        if (presumptiveGroup) presumptiveGroup.style.display = 'none';
         currentStep = 1;
         showStep(1);
         updateProgressBar();
+        handleTaxpayerTypeChange();
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
@@ -101,17 +103,47 @@
 
         if (inputId === 'hasBusinessIncome') {
             const presumptiveGroup = document.getElementById('presumptiveGroup');
-            presumptiveGroup.style.display = btn.dataset.value === 'yes' ? 'block' : 'none';
-            if (btn.dataset.value === 'no') {
-                document.getElementById('presumptiveTax').value = 'no';
-                // Reset presumptive toggle to "No"
-                const presGroup = document.getElementById('presumptiveGroup');
-                if (presGroup) {
-                    presGroup.querySelectorAll('.toggle-btn').forEach((b, i) => {
+            if (presumptiveGroup) {
+                presumptiveGroup.style.display = btn.dataset.value === 'yes' ? 'block' : 'none';
+                if (btn.dataset.value === 'no') {
+                    const presHidden = document.getElementById('presumptiveTax');
+                    if (presHidden) presHidden.value = 'no';
+                    presumptiveGroup.querySelectorAll('.toggle-btn').forEach((b, i) => {
                         b.classList.toggle('active', i === 0);
                     });
                 }
             }
+        }
+    }
+
+    function handleTaxpayerTypeChange() {
+        const type = document.getElementById('taxpayerType').value;
+        const hraRentGroup = document.getElementById('hraRentGroup');
+        const hraReceived = document.getElementById('hraReceived');
+        const isMetroGroup = document.getElementById('isMetroCity').parentElement.parentElement;
+        const standardDedHintRows = document.querySelectorAll('.std-deduction-hint');
+        
+        if (type === 'huf') {
+            if (hraRentGroup) hraRentGroup.style.display = 'none';
+            if (hraReceived) hraReceived.parentElement.parentElement.style.display = 'none';
+            if (isMetroGroup) isMetroGroup.style.display = 'none';
+            standardDedHintRows.forEach(el => el.style.display = 'none');
+            
+            // Age group should ideally not apply to HUF, but let's reset it to basic so it doesn't give senior benefits automatically 
+            // unless Karta is senior, but usually HUF doesn't get basic exemption slab escalation (all are 2.5L).
+        } else {
+            if (hraRentGroup) hraRentGroup.style.display = '';
+            if (hraReceived) hraReceived.parentElement.parentElement.style.display = '';
+            if (isMetroGroup) isMetroGroup.style.display = '';
+            standardDedHintRows.forEach(el => el.style.display = '');
+        }
+    }
+
+    function handleAgeGroupChange() {
+        const age = document.getElementById('ageGroup').value;
+        const title80TT = document.getElementById('title80TT');
+        if (title80TT) {
+            title80TT.textContent = (age === 'senior' || age === 'superSenior') ? '80TTB (Senior Citizens) — Max ₹50,000' : '80TTA Savings Interest';
         }
     }
 
@@ -127,13 +159,15 @@
     }
 
     // ──────────────────────────────────────────────────
-    // CURRENCY FORMATTING (Indian Numbering)
+    // CURRENCY FORMATTING
     // ──────────────────────────────────────────────────
-
-    function formatCurrencyInput(input) {
-        let value = input.value.replace(/[^0-9]/g, '');
-        if (value.length === 0) { input.value = ''; return; }
-        input.value = TaxEngine.formatINR(parseInt(value, 10));
+    // We remove the on-the-fly comma formatting since inputs are now type="number".
+    // We just ensure no negative numbers are kept.
+    
+    function filterNegativeInput(input) {
+        if (Number(input.value) < 0) {
+            input.value = 0;
+        }
     }
 
     function parseFormattedNumber(str) {
@@ -160,7 +194,7 @@
             basicSalary: parseFormattedNumber(document.getElementById('basicSalary').value),
             hraReceived: parseFormattedNumber(document.getElementById('hraReceived').value),
             rentPaid: parseFormattedNumber(document.getElementById('rentPaid').value),
-            isMetro: document.getElementById('isMetroCity').value === 'yes',
+            isMetro: document.getElementById('isMetroCity').value,
             rentalIncome: parseFormattedNumber(document.getElementById('rentalIncome').value),
             propertyTax: parseFormattedNumber(document.getElementById('propertyTax').value),
             homeLoanInterest: parseFormattedNumber(document.getElementById('homeLoanInterest').value),
@@ -224,7 +258,7 @@
     }
 
     // ──────────────────────────────────────────────────
-    // HERO ANIMATIONS (Counter Animation)
+    // HERO ANIMATIONS
     // ──────────────────────────────────────────────────
 
     function animateCounters() {
@@ -244,51 +278,41 @@
     }
 
     // ──────────────────────────────────────────────────
-    // WIRE ALL EVENT LISTENERS (CSP-compliant — no onclick in HTML)
+    // WIRE ALL EVENT LISTENERS
     // ──────────────────────────────────────────────────
 
     function wireEvents() {
-        // Hero CTA
         const startBtn = document.getElementById('startButton');
         if (startBtn) startBtn.addEventListener('click', startCalculator);
 
-        // Step 1 → Back to hero
         const backToHeroBtn = document.querySelector('#step1 .btn-secondary');
         if (backToHeroBtn) backToHeroBtn.addEventListener('click', goToHero);
 
-        // Step 1 → Continue to step 2
         const step1Next = document.querySelector('#step1 .btn-primary');
         if (step1Next) step1Next.addEventListener('click', () => { showStep(2); window.scrollTo({ top: 0, behavior: 'smooth' }); });
 
-        // Step 2 → Back to step 1
         const step2Back = document.querySelector('#step2 .btn-secondary');
         if (step2Back) step2Back.addEventListener('click', () => { showStep(1); window.scrollTo({ top: 0, behavior: 'smooth' }); });
 
-        // Step 2 → Continue to step 3
         const step2Next = document.querySelector('#step2 .btn-primary');
         if (step2Next) step2Next.addEventListener('click', () => { showStep(3); window.scrollTo({ top: 0, behavior: 'smooth' }); });
 
-        // Step 3 → Back to step 2
         const step3Back = document.querySelector('#step3 .btn-secondary');
         if (step3Back) step3Back.addEventListener('click', () => { showStep(2); window.scrollTo({ top: 0, behavior: 'smooth' }); });
 
-        // Step 3 → Calculate
         const calcBtn = document.querySelector('.btn-calculate');
         if (calcBtn) calcBtn.addEventListener('click', calculateAndShowResults);
 
-        // Step 4 → Modify Inputs (go to step 3)
+        // Fix 12: Modify Inputs returns to Step 1
         const step4Back = document.querySelector('#step4 .btn-secondary');
-        if (step4Back) step4Back.addEventListener('click', () => { showStep(3); window.scrollTo({ top: 0, behavior: 'smooth' }); });
+        if (step4Back) step4Back.addEventListener('click', () => { showStep(1); window.scrollTo({ top: 0, behavior: 'smooth' }); });
 
-        // Step 4 → Download report
         const downloadBtn = document.querySelector('#step4 .btn-primary');
         if (downloadBtn) downloadBtn.addEventListener('click', downloadReport);
 
-        // Step 4 → Start over
         const startOverBtn = document.querySelector('.btn-ghost');
         if (startOverBtn) startOverBtn.addEventListener('click', startOver);
 
-        // Breakdown tabs
         document.querySelectorAll('.breakdown-tab').forEach(tab => {
             tab.addEventListener('click', function () {
                 const regime = this.textContent.toLowerCase().includes('old') ? 'old' : 'new';
@@ -296,29 +320,30 @@
             });
         });
 
-        // Toggle buttons (Yes/No) — use data-input-id attribute
         document.querySelectorAll('.toggle-btn').forEach(btn => {
             btn.addEventListener('click', function () {
                 handleToggle(this);
             });
         });
 
-        // Currency inputs — format on input
-        document.querySelectorAll('input[type="text"]').forEach(input => {
+        document.querySelectorAll('input[type="number"]').forEach(input => {
             input.addEventListener('input', function () {
-                formatCurrencyInput(this);
+                filterNegativeInput(this);
             });
         });
+        
+        const taxpayerType = document.getElementById('taxpayerType');
+        if (taxpayerType) taxpayerType.addEventListener('change', handleTaxpayerTypeChange);
+        
+        const ageGroup = document.getElementById('ageGroup');
+        if (ageGroup) ageGroup.addEventListener('change', handleAgeGroupChange);
 
-        // Keyboard navigation (Tab-through with Enter)
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Enter' && e.target.tagName === 'INPUT') {
                 e.preventDefault();
-                const inputs = Array.from(document.querySelectorAll(
-                    `.step-panel.active input[type="text"], .step-panel.active select`
-                ));
+                const inputs = Array.from(document.querySelectorAll(`.step-panel.active input, .step-panel.active select`));
                 const currentIndex = inputs.indexOf(e.target);
-                if (currentIndex < inputs.length - 1) inputs[currentIndex + 1].focus();
+                if (currentIndex >= 0 && currentIndex < inputs.length - 1) inputs[currentIndex + 1].focus();
             }
         });
     }
@@ -331,15 +356,13 @@
         document.getElementById('footer').style.display = 'none';
         animateCounters();
         wireEvents();
+        handleTaxpayerTypeChange();
+        handleAgeGroupChange();
 
         console.log(
             '%c🧾 ITR Form Selector + Regime Comparator %c FY 2025-26 ',
             'background: #6C63FF; color: #fff; padding: 4px 8px; border-radius: 4px 0 0 4px; font-weight: bold;',
             'background: #06D6A0; color: #000; padding: 4px 8px; border-radius: 0 4px 4px 0; font-weight: bold;'
-        );
-        console.log(
-            '%c✓ All calculations run locally in your browser. Zero data stored.',
-            'color: #06D6A0; font-style: italic;'
         );
     }
 
@@ -349,4 +372,3 @@
         init();
     }
 })();
-/* Netlify cache bust: Sun Apr  5 16:49:50 IST 2026 */

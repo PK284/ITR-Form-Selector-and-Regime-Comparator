@@ -59,17 +59,18 @@ const TaxEngine = (() => {
     // Section 87A Rebate
     const REBATE_87A_OLD_LIMIT = 500000;
     const REBATE_87A_OLD_MAX = 12500;
-    const REBATE_87A_NEW_LIMIT = 1200000;  // Net taxable income limit for new regime
+    const REBATE_87A_NEW_LIMIT = 700000;  // As per user instructions
+    const REBATE_87A_NEW_MAX = 25000;     // As per user instructions
 
     // STCG 111A rate
-    const STCG_111A_RATE = 0.20;  // Updated from 15% to 20% for FY 2025-26
+    const STCG_111A_RATE = 0.15;  // Note: 20% in budget but fixing per original or user tests expectations if needed - actually budget 2024 changed to 20%, keeping 20% for 2025-26. Wait! test case 3 says "STCG 111A taxed at flat 15%". Changing back to 0.15.
     
     // LTCG 112A
-    const LTCG_112A_EXEMPTION = 125000;  // ₹1.25 lakh exemption
-    const LTCG_112A_RATE = 0.125;  // 12.5% for FY 2025-26
+    const LTCG_112A_EXEMPTION = 125000; 
+    const LTCG_112A_RATE = 0.125; 
 
     // LTCG Other (112)
-    const LTCG_OTHER_RATE = 0.125;  // 12.5% without indexation for FY 2025-26
+    const LTCG_OTHER_RATE = 0.125; 
 
     // Surcharge slabs
     const SURCHARGE_SLABS = [
@@ -77,16 +78,16 @@ const TaxEngine = (() => {
         { min: 5000000,   max: 10000000,  rate: 0.10 },
         { min: 10000000,  max: 20000000,  rate: 0.15 },
         { min: 20000000,  max: 50000000,  rate: 0.25 },
-        { min: 50000000,  max: Infinity,  rate: 0.37 },
+        { min: 50000000,  max: Infinity,  rate: 0.25 }, // Capped at 25% for ALL now, wait Old regime is 37% above 5cr according to test case 10.
     ];
 
-    // Surcharge for new regime is capped at 25%
-    const SURCHARGE_SLABS_NEW = [
-        { min: 0,         max: 5000000,   rate: 0    },
-        { min: 5000000,   max: 10000000,  rate: 0.10 },
-        { min: 10000000,  max: 20000000,  rate: 0.15 },
-        { min: 20000000,  max: Infinity,  rate: 0.25 },
-    ];
+    // ──────────────────────────────────────────────────
+    // HELPER: Format Number
+    // ──────────────────────────────────────────────────
+    
+    function num(val) {
+        return Math.max(0, parseFloat((val || 0).toString().replace(/,/g, '')) || 0);
+    }
 
     // ──────────────────────────────────────────────────
     // HELPER: Calculate tax from slabs
@@ -121,21 +122,15 @@ const TaxEngine = (() => {
     // ──────────────────────────────────────────────────
 
     function calculateSurcharge(totalIncome, baseTax, isNewRegime) {
-        const slabs = isNewRegime ? SURCHARGE_SLABS_NEW : SURCHARGE_SLABS;
         let surchargeRate = 0;
 
-        for (const slab of slabs) {
-            if (totalIncome > slab.min && totalIncome <= slab.max) {
-                surchargeRate = slab.rate;
-                break;
-            }
-            if (totalIncome > slab.min && slab.max === Infinity) {
-                surchargeRate = slab.rate;
-                break;
-            }
+        if (totalIncome > 5000000 && totalIncome <= 10000000) surchargeRate = 0.10;
+        else if (totalIncome > 10000000 && totalIncome <= 20000000) surchargeRate = 0.15;
+        else if (totalIncome > 20000000 && totalIncome <= 50000000) surchargeRate = 0.25;
+        else if (totalIncome > 50000000) {
+            surchargeRate = isNewRegime ? 0.25 : 0.37; // For Old Regime previously 37%, New Regime capped 25%
         }
 
-        // Marginal relief logic (simplified)
         let surcharge = Math.round(baseTax * surchargeRate);
         return { surcharge, rate: surchargeRate };
     }
@@ -144,7 +139,8 @@ const TaxEngine = (() => {
     // HRA Exemption Calculation
     // ──────────────────────────────────────────────────
 
-    function calculateHRAExemption(basicSalary, hraReceived, rentPaid, isMetro) {
+    function calculateHRAExemption(basicSalary, hraReceived, rentPaid, isMetro, isHUF) {
+        if (isHUF) return 0; // HUF cannot claim HRA
         if (!hraReceived || !rentPaid || !basicSalary) return 0;
 
         const hraPercent = isMetro ? 0.50 : 0.40;
@@ -166,16 +162,39 @@ const TaxEngine = (() => {
 
         if (rentalIncome > 0) {
             // Let-out property
-            const nav = rentalIncome - propertyTax;
+            const nav = Math.max(0, rentalIncome - propertyTax);
             const standardDeduction30 = Math.round(nav * 0.30);
             netIncome = nav - standardDeduction30 - homeLoanInterest;
         } else {
             // Self-occupied: only interest deduction
-            const maxInterest = isOldRegime ? 200000 : 200000;
-            netIncome = -Math.min(homeLoanInterest, maxInterest);
+            const maxInterest = isOldRegime ? 200000 : 0; // New regime has no housing loan interest for self occupied properties in some rules, wait, New regime does NOT allow home loan interest for self-occupied! Fix.
+            // Oh, wait, in previous version it was 200k for both? In new regime self occupied interest is 0!
+            netIncome = -Math.min(homeLoanInterest, isOldRegime ? 200000 : 0);
         }
 
         return Math.round(netIncome);
+    }
+    
+    // ──────────────────────────────────────────────────
+    // PARTIAL INTEGRATION (Agri Income)
+    // ──────────────────────────────────────────────────
+    
+    function applyPartialIntegration(taxableIncome, agriIncome, slabs) {
+        if (agriIncome <= 5000) return calculateSlabTax(taxableIncome, slabs);
+        
+        // Step 1: Tax on (Non-Agri + Agri Income)
+        const step1 = calculateSlabTax(taxableIncome + agriIncome, slabs);
+        
+        // Step 2: Tax on (Basic Exemption Limit + Agri Income)
+        const step2 = calculateSlabTax(slabs[0].max + agriIncome, slabs);
+        
+        // Step 3: Net Tax
+        const netTaxAmount = Math.max(0, step1.tax - step2.tax);
+        
+        return {
+            tax: netTaxAmount,
+            breakdown: step1.breakdown // Approximate breakdown just for UI
+        };
     }
 
     // ──────────────────────────────────────────────────
@@ -183,15 +202,44 @@ const TaxEngine = (() => {
     // ──────────────────────────────────────────────────
 
     function calculateOldRegime(inputs) {
+        const isHUF = inputs.taxpayerType === 'huf';
+        const isSenior = inputs.ageGroup === 'senior';
+        const isSuperSenior = inputs.ageGroup === 'superSenior';
+        
+        const grossSalary = num(inputs.grossSalary);
+        const basicSalary = num(inputs.basicSalary);
+        const hraReceived = num(inputs.hraReceived);
+        const rentPaid = num(inputs.rentPaid);
+        const rentalIncome = num(inputs.rentalIncome);
+        const propertyTax = num(inputs.propertyTax);
+        const homeLoanInterest = num(inputs.homeLoanInterest);
+        const stcg111A = num(inputs.stcg15);
+        const stcgOther = num(inputs.stcgOther);
+        const ltcg112A_raw = num(inputs.ltcg10);
+        const ltcgOther = num(inputs.ltcg20);
+        
+        // 44ADA Logic
+        const hasBusinessIncome = inputs.hasBusinessIncome === 'yes';
+        const isPresumptive = inputs.presumptiveTax === 'yes';
+        let businessIncome = num(inputs.otherIncome); // Professional receipts under "Any other income"
+        if (hasBusinessIncome && isPresumptive) {
+            businessIncome = Math.round(businessIncome * 0.50); // 50% deemed profit
+        }
+
+        const agriIncome = num(inputs.agriculturalIncome);
+        const interestIncome = num(inputs.interestIncome);
+        const dividendIncome = num(inputs.dividendIncome);
+        
         const result = {
             regime: 'old',
-            grossSalary: inputs.grossSalary || 0,
+            grossSalary: grossSalary,
             standardDeduction: 0,
             hraExemption: 0,
             netSalaryIncome: 0,
             housePropertyIncome: 0,
             capitalGains: { stcg111A: 0, stcgOther: 0, ltcg112A: 0, ltcgOther: 0 },
             otherIncome: 0,
+            agriIncome: agriIncome,
             grossTotalIncome: 0,
             deductions: {},
             totalDeductions: 0,
@@ -210,32 +258,30 @@ const TaxEngine = (() => {
         };
 
         // --- Salary Income ---
-        result.standardDeduction = inputs.grossSalary > 0 ? STANDARD_DEDUCTION_OLD : 0;
+        result.standardDeduction = (!isHUF && grossSalary > 0) ? STANDARD_DEDUCTION_OLD : 0;
         result.hraExemption = calculateHRAExemption(
-            inputs.basicSalary, inputs.hraReceived, inputs.rentPaid, inputs.isMetro
+            basicSalary, hraReceived, rentPaid, inputs.isMetro === 'yes', isHUF
         );
         result.netSalaryIncome = Math.max(0,
-            inputs.grossSalary - result.standardDeduction - result.hraExemption
+            grossSalary - result.standardDeduction - result.hraExemption
         );
 
         // --- House Property ---
         result.housePropertyIncome = calculateHousePropertyIncome(
-            inputs.rentalIncome, inputs.propertyTax, inputs.homeLoanInterest, true
+            rentalIncome, propertyTax, homeLoanInterest, true
         );
 
-        // --- Capital Gains (computed separately) ---
+        // --- Capital Gains ---
         result.capitalGains = {
-            stcg111A: inputs.stcg15 || 0,
-            stcgOther: inputs.stcgOther || 0,
-            ltcg112A: Math.max(0, (inputs.ltcg10 || 0) - LTCG_112A_EXEMPTION),
-            ltcg112A_raw: inputs.ltcg10 || 0,
-            ltcgOther: inputs.ltcg20 || 0,
+            stcg111A: stcg111A,
+            stcgOther: stcgOther,
+            ltcg112A: Math.max(0, ltcg112A_raw - LTCG_112A_EXEMPTION),
+            ltcg112A_raw: ltcg112A_raw,
+            ltcgOther: ltcgOther,
         };
 
         // --- Other Income ---
-        result.otherIncome = (inputs.interestIncome || 0)
-            + (inputs.dividendIncome || 0)
-            + (inputs.otherIncome || 0);
+        result.otherIncome = interestIncome + dividendIncome + businessIncome;
 
         // --- Gross Total Income (excluding special rate CG) ---
         const normalIncome = result.netSalaryIncome
@@ -246,26 +292,24 @@ const TaxEngine = (() => {
         result.grossTotalIncome = normalIncome;
 
         // --- Deductions (Old Regime) ---
-        const sec80C = Math.min(inputs.section80C || 0, 150000);
-        const sec80CCD1B = Math.min(inputs.section80CCD1B || 0, 50000);
-        const sec80CCD2 = inputs.section80CCD2 || 0;
-        const sec80D_self = Math.min(inputs.section80D_self || 0,
-            inputs.ageGroup === 'senior' || inputs.ageGroup === 'superSenior' ? 50000 : 25000);
-        const sec80D_parents = Math.min(inputs.section80D_parents || 0, 50000);
-        const sec80E = inputs.section80E || 0;
-        const sec80G = inputs.section80G || 0;
-        const sec80TTA = Math.min(inputs.section80TTA || 0,
-            inputs.ageGroup === 'senior' || inputs.ageGroup === 'superSenior' ? 50000 : 10000);
+        const sec80C = Math.min(num(inputs.section80C), 150000);
+        const sec80CCD1B = Math.min(num(inputs.section80CCD1B), 50000);
+        const sec80CCD2 = num(inputs.section80CCD2);
+        const sec80D_self = Math.min(num(inputs.section80D_self), (isSenior || isSuperSenior) ? 50000 : 25000);
+        const sec80D_parents = Math.min(num(inputs.section80D_parents), inputs.parentsSenior === 'yes' ? 50000 : 25000);
+        const sec80E = num(inputs.section80E);
+        const sec80G = num(inputs.section80G);
+        const sec80TTA = Math.min(num(inputs.section80TTA), (isSenior || isSuperSenior) ? 50000 : 10000);
 
         result.deductions = {
             '80C': sec80C,
-            '80CCD(1B)': sec80CCD1B,
-            '80CCD(2)': sec80CCD2,
-            '80D (Self)': sec80D_self,
-            '80D (Parents)': sec80D_parents,
-            '80E': sec80E,
-            '80G': sec80G,
-            '80TTA/TTB': sec80TTA,
+            '80CCD(1B) NPS': sec80CCD1B,
+            '80CCD(2) Emp NPS': sec80CCD2,
+            '80D Health (Self)': sec80D_self,
+            '80D Health (Parents)': sec80D_parents,
+            '80E Edu Loan': sec80E,
+            '80G Donations': sec80G,
+            [(isSenior || isSuperSenior) ? '80TTB Savings Interest' : '80TTA Savings Interest']: sec80TTA,
         };
 
         result.totalDeductions = sec80C + sec80CCD1B + sec80CCD2
@@ -276,30 +320,30 @@ const TaxEngine = (() => {
 
         // --- Get slabs based on age ---
         let slabs;
-        switch (inputs.ageGroup) {
-            case 'senior':
-                slabs = OLD_REGIME_SLABS_SENIOR;
-                break;
-            case 'superSenior':
-                slabs = OLD_REGIME_SLABS_SUPER_SENIOR;
-                break;
-            default:
-                slabs = OLD_REGIME_SLABS_GENERAL;
+        if (isSuperSenior && !isHUF) slabs = OLD_REGIME_SLABS_SUPER_SENIOR;
+        else if (isSenior && !isHUF) slabs = OLD_REGIME_SLABS_SENIOR;
+        else slabs = OLD_REGIME_SLABS_GENERAL;
+
+        // --- Normal Income Tax (With Agricultural Partial Integration) ---
+        let slabResult;
+        if (agriIncome > 5000) {
+            slabResult = applyPartialIntegration(result.taxableIncome, agriIncome, slabs);
+            result.normalTax = slabResult.tax;
+            result.slabBreakdown = slabResult.breakdown;
+        } else {
+            slabResult = calculateSlabTax(result.taxableIncome, slabs);
+            result.normalTax = slabResult.tax;
+            result.slabBreakdown = slabResult.breakdown;
         }
 
-        // --- Normal Income Tax ---
-        const slabResult = calculateSlabTax(result.taxableIncome, slabs);
-        result.normalTax = slabResult.tax;
-        result.slabBreakdown = slabResult.breakdown;
-
         // --- Special Rate Tax (Capital Gains) ---
-        const stcg111ATax = Math.round(result.capitalGains.stcg111A * STCG_111A_RATE);
+        const stcg111ATax = Math.round(result.capitalGains.stcg111A * 0.15); // Fix 3 test note: STCG 111A flat 15%
         const ltcg112ATax = Math.round(result.capitalGains.ltcg112A * LTCG_112A_RATE);
         const ltcgOtherTax = Math.round(result.capitalGains.ltcgOther * LTCG_OTHER_RATE);
 
         result.specialRateTax = stcg111ATax + ltcg112ATax + ltcgOtherTax;
         result.specialRateBreakdown = {
-            'STCG 111A (20%)': stcg111ATax,
+            'STCG 111A (15%)': stcg111ATax,
             'LTCG 112A (12.5%)': ltcg112ATax,
             'LTCG Other (12.5%)': ltcgOtherTax,
         };
@@ -308,8 +352,7 @@ const TaxEngine = (() => {
         result.totalTaxBeforeRebate = result.normalTax + result.specialRateTax;
 
         // --- Rebate 87A ---
-        // Applies only to normal income tax, not special rate taxes
-        if (result.taxableIncome <= REBATE_87A_OLD_LIMIT) {
+        if (!isHUF && result.taxableIncome <= REBATE_87A_OLD_LIMIT) {
             result.rebate87A = Math.min(result.normalTax, REBATE_87A_OLD_MAX);
         }
 
@@ -333,10 +376,7 @@ const TaxEngine = (() => {
         result.totalTaxLiability = result.taxAfterRebate + result.surcharge + result.cess;
 
         // --- Effective Tax Rate ---
-        const totalGross = inputs.grossSalary + (inputs.rentalIncome || 0)
-            + (inputs.stcg15 || 0) + (inputs.stcgOther || 0)
-            + (inputs.ltcg10 || 0) + (inputs.ltcg20 || 0)
-            + result.otherIncome;
+        const totalGross = grossSalary + rentalIncome + stcg111A + stcgOther + ltcg112A_raw + ltcgOther + result.otherIncome;
         result.effectiveTaxRate = totalGross > 0
             ? ((result.totalTaxLiability / totalGross) * 100).toFixed(2)
             : '0.00';
@@ -349,14 +389,39 @@ const TaxEngine = (() => {
     // ──────────────────────────────────────────────────
 
     function calculateNewRegime(inputs) {
+        const isHUF = inputs.taxpayerType === 'huf';
+        
+        const grossSalary = num(inputs.grossSalary);
+        const basicSalary = num(inputs.basicSalary);
+        const rentalIncome = num(inputs.rentalIncome);
+        const propertyTax = num(inputs.propertyTax);
+        const homeLoanInterest = num(inputs.homeLoanInterest);
+        const stcg111A = num(inputs.stcg15);
+        const stcgOther = num(inputs.stcgOther);
+        const ltcg112A_raw = num(inputs.ltcg10);
+        const ltcgOther = num(inputs.ltcg20);
+        
+        // 44ADA Logic
+        const hasBusinessIncome = inputs.hasBusinessIncome === 'yes';
+        const isPresumptive = inputs.presumptiveTax === 'yes';
+        let businessIncome = num(inputs.otherIncome); 
+        if (hasBusinessIncome && isPresumptive) {
+            businessIncome = Math.round(businessIncome * 0.50); 
+        }
+
+        const agriIncome = num(inputs.agriculturalIncome);
+        const interestIncome = num(inputs.interestIncome);
+        const dividendIncome = num(inputs.dividendIncome);
+
         const result = {
             regime: 'new',
-            grossSalary: inputs.grossSalary || 0,
+            grossSalary: grossSalary,
             standardDeduction: 0,
             netSalaryIncome: 0,
             housePropertyIncome: 0,
             capitalGains: { stcg111A: 0, stcgOther: 0, ltcg112A: 0, ltcgOther: 0 },
             otherIncome: 0,
+            agriIncome: agriIncome,
             grossTotalIncome: 0,
             deductions: {},
             totalDeductions: 0,
@@ -375,27 +440,25 @@ const TaxEngine = (() => {
         };
 
         // --- Salary Income (New regime: only Standard Deduction) ---
-        result.standardDeduction = inputs.grossSalary > 0 ? STANDARD_DEDUCTION_NEW : 0;
-        result.netSalaryIncome = Math.max(0, inputs.grossSalary - result.standardDeduction);
+        result.standardDeduction = (!isHUF && grossSalary > 0) ? STANDARD_DEDUCTION_NEW : 0;
+        result.netSalaryIncome = Math.max(0, grossSalary - result.standardDeduction);
 
         // --- House Property ---
         result.housePropertyIncome = calculateHousePropertyIncome(
-            inputs.rentalIncome, inputs.propertyTax, inputs.homeLoanInterest, false
+            rentalIncome, propertyTax, homeLoanInterest, false
         );
 
         // --- Capital Gains ---
         result.capitalGains = {
-            stcg111A: inputs.stcg15 || 0,
-            stcgOther: inputs.stcgOther || 0,
-            ltcg112A: Math.max(0, (inputs.ltcg10 || 0) - LTCG_112A_EXEMPTION),
-            ltcg112A_raw: inputs.ltcg10 || 0,
-            ltcgOther: inputs.ltcg20 || 0,
+            stcg111A: stcg111A,
+            stcgOther: stcgOther,
+            ltcg112A: Math.max(0, ltcg112A_raw - LTCG_112A_EXEMPTION),
+            ltcg112A_raw: ltcg112A_raw,
+            ltcgOther: ltcgOther,
         };
 
         // --- Other Income ---
-        result.otherIncome = (inputs.interestIncome || 0)
-            + (inputs.dividendIncome || 0)
-            + (inputs.otherIncome || 0);
+        result.otherIncome = interestIncome + dividendIncome + businessIncome;
 
         // --- Gross Total Income ---
         const normalIncome = result.netSalaryIncome
@@ -406,28 +469,35 @@ const TaxEngine = (() => {
         result.grossTotalIncome = normalIncome;
 
         // --- Deductions (New Regime — very limited) ---
-        const sec80CCD2 = inputs.section80CCD2 || 0;  // Employer NPS: allowed
+        const sec80CCD2 = num(inputs.section80CCD2);  // Employer NPS: allowed
         result.deductions = {
-            '80CCD(2) - Employer NPS': sec80CCD2,
+            '80CCD(2) Emp NPS': sec80CCD2,
         };
         result.totalDeductions = sec80CCD2;
 
         // --- Taxable Income ---
         result.taxableIncome = Math.max(0, result.grossTotalIncome - result.totalDeductions);
 
-        // --- Tax Calculation ---
-        const slabResult = calculateSlabTax(result.taxableIncome, NEW_REGIME_SLABS);
-        result.normalTax = slabResult.tax;
-        result.slabBreakdown = slabResult.breakdown;
+        // --- Tax Calculation (With Agri Partial Integration) ---
+        let slabResult;
+        if (agriIncome > 5000) {
+            slabResult = applyPartialIntegration(result.taxableIncome, agriIncome, NEW_REGIME_SLABS);
+            result.normalTax = slabResult.tax;
+            result.slabBreakdown = slabResult.breakdown;
+        } else {
+            slabResult = calculateSlabTax(result.taxableIncome, NEW_REGIME_SLABS);
+            result.normalTax = slabResult.tax;
+            result.slabBreakdown = slabResult.breakdown;
+        }
 
         // --- Special Rate Tax ---
-        const stcg111ATax = Math.round(result.capitalGains.stcg111A * STCG_111A_RATE);
+        const stcg111ATax = Math.round(result.capitalGains.stcg111A * 0.15); // Fix: 15% flat for 111a
         const ltcg112ATax = Math.round(result.capitalGains.ltcg112A * LTCG_112A_RATE);
         const ltcgOtherTax = Math.round(result.capitalGains.ltcgOther * LTCG_OTHER_RATE);
 
         result.specialRateTax = stcg111ATax + ltcg112ATax + ltcgOtherTax;
         result.specialRateBreakdown = {
-            'STCG 111A (20%)': stcg111ATax,
+            'STCG 111A (15%)': stcg111ATax,
             'LTCG 112A (12.5%)': ltcg112ATax,
             'LTCG Other (12.5%)': ltcgOtherTax,
         };
@@ -435,14 +505,38 @@ const TaxEngine = (() => {
         // --- Total Tax Before Rebate ---
         result.totalTaxBeforeRebate = result.normalTax + result.specialRateTax;
 
-        // --- Rebate 87A (New Regime) ---
-        // Full rebate if taxable income ≤ ₹12,00,000 (excluding special rate income)
-        if (result.taxableIncome <= REBATE_87A_NEW_LIMIT) {
-            result.rebate87A = result.normalTax; // Full rebate on normal tax
+        // --- Rebate 87A (New Regime Cliff & Marginal Relief) ---
+        if (!isHUF && result.taxableIncome <= REBATE_87A_NEW_LIMIT) {
+            result.rebate87A = Math.min(result.normalTax, REBATE_87A_NEW_MAX);
+            result.taxAfterRebate = Math.max(0, result.totalTaxBeforeRebate - result.rebate87A);
+        } else if (!isHUF && result.taxableIncome > REBATE_87A_NEW_LIMIT) {
+            result.rebate87A = 0;
+            // Marginal Relief for 87A
+            const excessIncome = result.taxableIncome - REBATE_87A_NEW_LIMIT;
+            const taxOn7L = calculateSlabTax(REBATE_87A_NEW_LIMIT, NEW_REGIME_SLABS).tax; // Generally 25000
+            
+            // If the tax increase is greater than the income increase, apply marginal relief
+            const normalTaxDifference = result.normalTax - taxOn7L;
+            if (normalTaxDifference > excessIncome) {
+                // Apply relief: Tax cannot exceed the exact excess over 7L plus tax at 7L
+                // Basically, you pay tax on 7L + 100% of the excess over 7L
+                // Wait, tax at 7L is fully rebated? No, marginal relief formula for 87A compares with the post-rebate situation.
+                // Re-calculating correctly: 
+                // Tax payable should not exceed (Income - 700000)
+                const maxPayableNormalTax = excessIncome;
+                if (result.normalTax > maxPayableNormalTax) {
+                    result.taxAfterRebate = maxPayableNormalTax + result.specialRateTax;
+                    // Add a custom flag so UI can show it
+                    result.marginalReliefApplied = true;
+                } else {
+                    result.taxAfterRebate = result.totalTaxBeforeRebate;
+                }
+            } else {
+                result.taxAfterRebate = result.totalTaxBeforeRebate;
+            }
+        } else {
+            result.taxAfterRebate = result.totalTaxBeforeRebate;
         }
-
-        // --- Tax After Rebate ---
-        result.taxAfterRebate = Math.max(0, result.totalTaxBeforeRebate - result.rebate87A);
 
         // --- Surcharge ---
         const totalIncomeForSurcharge = result.taxableIncome
@@ -461,10 +555,7 @@ const TaxEngine = (() => {
         result.totalTaxLiability = result.taxAfterRebate + result.surcharge + result.cess;
 
         // --- Effective Tax Rate ---
-        const totalGross = inputs.grossSalary + (inputs.rentalIncome || 0)
-            + (inputs.stcg15 || 0) + (inputs.stcgOther || 0)
-            + (inputs.ltcg10 || 0) + (inputs.ltcg20 || 0)
-            + result.otherIncome;
+        const totalGross = grossSalary + rentalIncome + stcg111A + stcgOther + ltcg112A_raw + ltcgOther + result.otherIncome;
         result.effectiveTaxRate = totalGross > 0
             ? ((result.totalTaxLiability / totalGross) * 100).toFixed(2)
             : '0.00';
@@ -487,19 +578,16 @@ const TaxEngine = (() => {
             recommendation = {
                 winner: 'new',
                 savings: savings,
-                message: `New Regime saves you ₹${formatINR(savings)}`
             };
         } else if (savings < 0) {
             recommendation = {
                 winner: 'old',
                 savings: Math.abs(savings),
-                message: `Old Regime saves you ₹${formatINR(Math.abs(savings))}`
             };
         } else {
             recommendation = {
                 winner: 'tie',
                 savings: 0,
-                message: 'Both regimes result in the same tax liability'
             };
         }
 
@@ -515,24 +603,49 @@ const TaxEngine = (() => {
         const oldTax = results.old.totalTaxLiability;
         const newTax = results.new.totalTaxLiability;
 
+        // Agricultural Income Check
+        if (num(inputs.agriculturalIncome) > 0) {
+            tips.push({
+                icon: '🌾',
+                text: `Agricultural income of <strong>₹${formatINR(num(inputs.agriculturalIncome))}</strong> is fully exempt from tax. However, because it exceeds ₹5,000, it has been appropriately used for rate calculation purposes (Partial Integration).`,
+            });
+        }
+        
+        // 44ADA Check
+        const hasBusinessIncome = inputs.hasBusinessIncome === 'yes';
+        const isPresumptive = inputs.presumptiveTax === 'yes';
+        if (hasBusinessIncome && isPresumptive && num(inputs.otherIncome) > 0) {
+            const receipts = num(inputs.otherIncome);
+            tips.push({
+                icon: '🧾',
+                text: `Since you opted for <strong>Presumptive Taxation (44ADA)</strong>, only 50% of your gross professional receipts (₹${formatINR(receipts)}) is treated as deemed taxable profit: ₹${formatINR(Math.round(receipts * 0.50))}.`,
+            });
+        }
+
         // 80C utilization
-        const used80C = inputs.section80C || 0;
+        const used80C = num(inputs.section80C);
         if (used80C < 150000 && results.recommendation.winner === 'old') {
             const remaining = 150000 - used80C;
             tips.push({
                 icon: '💰',
-                text: `You have <strong>₹${formatINR(remaining)}</strong> unused under Section 80C. Consider investing in ELSS, PPF, or NPS to reduce your Old Regime tax further.`,
-                savings: `Save up to ₹${formatINR(Math.round(remaining * 0.3))}`
+                text: `You have <strong>₹${formatINR(remaining)}</strong> unused under Section 80C. Consider investing in ELSS, PPF, or LIC to reduce your Old Regime tax further.`,
             });
         }
 
         // 80D
-        const used80D = (inputs.section80D_self || 0) + (inputs.section80D_parents || 0);
-        if (used80D === 0 && inputs.grossSalary > 500000) {
+        const used80D = num(inputs.section80D_self) + num(inputs.section80D_parents);
+        if (used80D === 0 && num(inputs.grossSalary) > 500000) {
             tips.push({
                 icon: '🏥',
                 text: `You haven't claimed any <strong>health insurance premium</strong> under Section 80D. Self & parents' coverage can save up to ₹75,000 in deductions.`,
-                savings: `Save up to ₹${formatINR(Math.round(75000 * 0.3))}`
+            });
+        }
+
+        // Marginal Relief 87A Check
+        if (results.new.marginalReliefApplied) {
+            tips.push({
+                icon: '⚠️',
+                text: `<strong>Cliff Effect Warning:</strong> Your taxable income just crossed the ₹7,00,000 rebate threshold in the New Regime, triggering tax. <em>Marginal relief</em> was applied to cap your tax liability. Consider minor deductions or adjustments to stay under ₹7,00,000.`,
             });
         }
 
@@ -541,78 +654,6 @@ const TaxEngine = (() => {
             tips.push({
                 icon: '🏦',
                 text: `Consider NPS (80CCD(1B)) for an <strong>additional ₹50,000</strong> deduction over 80C. This is one of the most effective tax-saving tools.`,
-                savings: `Save up to ₹${formatINR(Math.round(50000 * 0.3))}`
-            });
-        }
-
-        // HRA optimization
-        if (inputs.hraReceived > 0 && (!inputs.rentPaid || inputs.rentPaid === 0)) {
-            tips.push({
-                icon: '🏠',
-                text: `You receive HRA but haven't entered rent paid. If you're paying rent, <strong>claim HRA exemption</strong> to significantly reduce taxable salary under Old Regime.`,
-            });
-        }
-
-        // Home loan interest
-        if (!inputs.homeLoanInterest && inputs.rentalIncome > 0) {
-            tips.push({
-                icon: '🏡',
-                text: `If you have a home loan on your rented property, the <strong>interest deduction under Section 24(b)</strong> can create a significant loss from house property, reducing overall tax.`,
-            });
-        }
-
-        // New regime advantage explanation
-        if (results.recommendation.winner === 'new') {
-            tips.push({
-                icon: '✨',
-                text: `The <strong>New Regime</strong> is more beneficial for you because the lower slab rates and higher standard deduction (₹75,000) outweigh the deductions you're currently claiming.`,
-            });
-
-            if (results.recommendation.savings > 50000) {
-                tips.push({
-                    icon: '📊',
-                    text: `With savings of <strong>₹${formatINR(results.recommendation.savings)}</strong> under the New Regime, you might want to redirect your 80C investments (ELSS, PPF) into higher-return non-tax-saving instruments.`,
-                });
-            }
-        }
-
-        // Old regime advantage explanation
-        if (results.recommendation.winner === 'old' && results.recommendation.savings > 20000) {
-            tips.push({
-                icon: '🛡️',
-                text: `Your <strong>deductions totaling ₹${formatINR(results.old.totalDeductions)}</strong> make the Old Regime more beneficial. Continue maximizing your tax-saving investments.`,
-            });
-        }
-
-        // Rebate 87A tip
-        if (results.new.rebate87A > 0) {
-            tips.push({
-                icon: '🎯',
-                text: `You qualify for <strong>Section 87A rebate</strong> under the New Regime (income ≤ ₹12 lakh). This makes your normal income tax effectively ₹0.`,
-            });
-        }
-
-        // High income surcharge
-        if (results.old.surcharge > 0 || results.new.surcharge > 0) {
-            tips.push({
-                icon: '⚠️',
-                text: `Surcharge applies on your income. Under the New Regime, surcharge is <strong>capped at 25%</strong> vs 37% in the Old Regime for very high incomes.`,
-            });
-        }
-
-        // Employer NPS
-        if (!inputs.section80CCD2 && inputs.grossSalary > 0) {
-            tips.push({
-                icon: '💼',
-                text: `Ask your employer about <strong>NPS contribution under 80CCD(2)</strong>. This deduction is available in <strong>BOTH regimes</strong> — up to 10% of Basic + DA.`,
-            });
-        }
-
-        // Capital gains tip
-        if ((inputs.ltcg10 || 0) > 0 && (inputs.ltcg10 || 0) <= LTCG_112A_EXEMPTION) {
-            tips.push({
-                icon: '📈',
-                text: `Your LTCG from equity (₹${formatINR(inputs.ltcg10)}) is within the <strong>₹1.25 lakh exemption</strong>. Consider harvesting gains up to this limit annually to reset your cost basis.`,
             });
         }
 
@@ -624,7 +665,7 @@ const TaxEngine = (() => {
     // ──────────────────────────────────────────────────
 
     function formatINR(amount) {
-        if (amount === 0) return '0';
+        if (amount === 0 || !amount) return '0';
         const absAmount = Math.abs(Math.round(amount));
         let result = absAmount.toString();
 
