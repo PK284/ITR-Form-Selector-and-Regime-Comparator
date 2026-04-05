@@ -1,11 +1,5 @@
-# ITR Form Selector + Regime Comparator
-# GitHub Pages deployment - no build step needed
-
-# Netlify config (if deploying to Netlify)
-# Just drag & drop the folder, or connect repo
-
-# Vercel config
-# Push to GitHub, connect repo, auto-deploy
+[build]
+  publish = "."
 
 [[headers]]
   for = "/*"
@@ -15,3 +9,13 @@
     Referrer-Policy = "strict-origin-when-cross-origin"
     Permissions-Policy = "camera=(), microphone=(), geolocation=()"
     Content-Security-Policy = "default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com 'unsafe-inline'; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'"
+
+[[headers]]
+  for = "/js/*"
+  [headers.values]
+    Cache-Control = "no-cache, no-store, must-revalidate"
+
+[[headers]]
+  for = "/css/*"
+  [headers.values]
+    Cache-Control = "no-cache, no-store, must-revalidate"
