@@ -69,16 +69,26 @@ const TaxEngine = (() => {
     const LTCG_112A_EXEMPTION = 125000; 
     const LTCG_112A_RATE = 0.125; 
 
-    // LTCG Other (112)
-    const LTCG_OTHER_RATE = 0.125; 
+    // LTCG Other (Section 112 — debt/property, NOT equity): 20% rate
+    // NOTE: LTCG on listed equity (112A) = 12.5%, LTCG on property/debt (112) = 20%
+    // TC-026: "LTCG Other property: taxed at 20% with indexation, Tax on Rs.15L = Rs.3L"
+    const LTCG_OTHER_RATE = 0.20;
 
-    // Surcharge slabs
-    const SURCHARGE_SLABS = [
+    // Surcharge tiers (applied on tax amount, not income)
+    // Old Regime: 10% (>50L), 15% (>1Cr), 25% (>2Cr), 37% (>5Cr) — Budget 2023 reduced 37% to 25% only for New Regime
+    // New Regime: 10% (>50L), 15% (>1Cr), 25% (>2Cr), 25% (>5Cr) — capped at 25%
+    const SURCHARGE_SLABS_NEW = [
+        { min: 0,         max: 5000000,   rate: 0    },
+        { min: 5000000,   max: 10000000,  rate: 0.10 },
+        { min: 10000000,  max: 20000000,  rate: 0.15 },
+        { min: 20000000,  max: Infinity,  rate: 0.25 }, // Capped at 25% for New Regime
+    ];
+    const SURCHARGE_SLABS_OLD = [
         { min: 0,         max: 5000000,   rate: 0    },
         { min: 5000000,   max: 10000000,  rate: 0.10 },
         { min: 10000000,  max: 20000000,  rate: 0.15 },
         { min: 20000000,  max: 50000000,  rate: 0.25 },
-        { min: 50000000,  max: Infinity,  rate: 0.25 }, // Capped at 25% for ALL now, wait Old regime is 37% above 5cr according to test case 10.
+        { min: 50000000,  max: Infinity,  rate: 0.37 }, // Old Regime: 37% above 5 Cr (not capped)
     ];
 
     // ──────────────────────────────────────────────────
@@ -122,15 +132,13 @@ const TaxEngine = (() => {
     // ──────────────────────────────────────────────────
 
     function calculateSurcharge(totalIncome, baseTax, isNewRegime) {
+        const slabs = isNewRegime ? SURCHARGE_SLABS_NEW : SURCHARGE_SLABS_OLD;
         let surchargeRate = 0;
-
-        if (totalIncome > 5000000 && totalIncome <= 10000000) surchargeRate = 0.10;
-        else if (totalIncome > 10000000 && totalIncome <= 20000000) surchargeRate = 0.15;
-        else if (totalIncome > 20000000 && totalIncome <= 50000000) surchargeRate = 0.25;
-        else if (totalIncome > 50000000) {
-            surchargeRate = isNewRegime ? 0.25 : 0.37; // For Old Regime previously 37%, New Regime capped 25%
+        for (const slab of slabs) {
+            if (totalIncome > slab.min) surchargeRate = slab.rate;
         }
 
+        // Marginal relief on surcharge: extra tax due to surcharge cannot exceed income above threshold
         let surcharge = Math.round(baseTax * surchargeRate);
         return { surcharge, rate: surchargeRate };
     }
@@ -344,15 +352,17 @@ const TaxEngine = (() => {
         result.specialRateTax = stcg111ATax + ltcg112ATax + ltcgOtherTax;
         result.specialRateBreakdown = {
             'STCG 111A (20%)': stcg111ATax,
-            'LTCG 112A (12.5%)': ltcg112ATax,
-            'LTCG Other (12.5%)': ltcgOtherTax,
+            'LTCG 112A Equity (12.5%)': ltcg112ATax,
+            'LTCG Other/Property (20%)': ltcgOtherTax,
         };
 
         // --- Total Tax Before Rebate ---
         result.totalTaxBeforeRebate = result.normalTax + result.specialRateTax;
 
-        // --- Rebate 87A ---
-        if (!isHUF && result.taxableIncome <= REBATE_87A_OLD_LIMIT) {
+        // --- Rebate 87A (Old Regime) ---
+        // ONLY resident individuals can claim 87A — HUF and NRI are excluded
+        const isNRI_old = inputs.residencyStatus === 'nri' || inputs.residencyStatus === 'rnor';
+        if (!isHUF && !isNRI_old && result.taxableIncome <= REBATE_87A_OLD_LIMIT) {
             result.rebate87A = Math.min(result.normalTax, REBATE_87A_OLD_MAX);
         }
 
@@ -498,18 +508,20 @@ const TaxEngine = (() => {
         result.specialRateTax = stcg111ATax + ltcg112ATax + ltcgOtherTax;
         result.specialRateBreakdown = {
             'STCG 111A (20%)': stcg111ATax,
-            'LTCG 112A (12.5%)': ltcg112ATax,
-            'LTCG Other (12.5%)': ltcgOtherTax,
+            'LTCG 112A Equity (12.5%)': ltcg112ATax,
+            'LTCG Other/Property (20%)': ltcgOtherTax,
         };
 
         // --- Total Tax Before Rebate ---
         result.totalTaxBeforeRebate = result.normalTax + result.specialRateTax;
 
         // --- Rebate 87A (New Regime Cliff & Marginal Relief) ---
-        if (!isHUF && result.taxableIncome <= REBATE_87A_NEW_LIMIT) {
+        // Only resident individuals can claim 87A — HUF and NRI excluded
+        const isNRI_new = inputs.residencyStatus === 'nri' || inputs.residencyStatus === 'rnor';
+        if (!isHUF && !isNRI_new && result.taxableIncome <= REBATE_87A_NEW_LIMIT) {
             result.rebate87A = Math.min(result.normalTax, REBATE_87A_NEW_MAX);
             result.taxAfterRebate = Math.max(0, result.totalTaxBeforeRebate - result.rebate87A);
-        } else if (!isHUF && result.taxableIncome > REBATE_87A_NEW_LIMIT) {
+        } else if (!isHUF && !isNRI_new && result.taxableIncome > REBATE_87A_NEW_LIMIT) {
             result.rebate87A = 0;
             // Marginal Relief for 87A
             const excessIncome = result.taxableIncome - REBATE_87A_NEW_LIMIT;
@@ -535,6 +547,8 @@ const TaxEngine = (() => {
                 result.taxAfterRebate = result.totalTaxBeforeRebate;
             }
         } else {
+            // HUF or NRI — no 87A rebate
+            result.rebate87A = 0;
             result.taxAfterRebate = result.totalTaxBeforeRebate;
         }
 

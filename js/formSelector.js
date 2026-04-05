@@ -61,7 +61,7 @@ const FormSelector = (() => {
 
         const hasCapitalGains = (inputs.stcg15 || 0) > 0
             || (inputs.stcgOther || 0) > 0
-            || (inputs.ltcg10 || 0) > 0
+            || Math.max(0, (inputs.ltcg10 || 0) - 125000) > 0 // ITR-1 valid for LTCG 112A up to Rs.1.25L (AY 2026-27 rule)
             || (inputs.ltcg20 || 0) > 0;
 
         const hasBusinessIncome = inputs.hasBusinessIncome === 'yes';
@@ -144,8 +144,9 @@ const FormSelector = (() => {
             needsITR2 = true;
             if ((inputs.stcg15 || 0) > 0) reasons.push('Short-term capital gains (Section 111A) present');
             if ((inputs.stcgOther || 0) > 0) reasons.push('Short-term capital gains (other) present');
-            if ((inputs.ltcg10 || 0) > 0) reasons.push('Long-term capital gains (112A) present');
-            if ((inputs.ltcg20 || 0) > 0) reasons.push('Long-term capital gains (other/property) present');
+            if (Math.max(0, (inputs.ltcg10 || 0) - 125000) > 0) reasons.push('Long-term capital gains (112A) above Rs.1,25,000 exemption limit');
+            if ((inputs.ltcg10 || 0) > 0 && Math.max(0, (inputs.ltcg10 || 0) - 125000) === 0) reasons.push('Long-term capital gains (112A) within Rs.1,25,000 exemption — ITR-2 required for schedule CG');
+            if ((inputs.ltcg20 || 0) > 0) reasons.push('Long-term capital gains (property/other) present — taxed at 20%');
             warnings.push('Capital gains income requires ITR-2. ITR-1 (Sahaj) is not valid and will result in a defective return notice from the Income Tax Department.');
         }
 
