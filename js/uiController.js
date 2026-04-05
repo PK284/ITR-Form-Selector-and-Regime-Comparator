@@ -335,68 +335,155 @@ const UIController = (() => {
     // GENERATE PDF REPORT
     // ──────────────────────────────────────────────────
 
-    function generateReport(formResult, results, tips) {
+    function generatePDF(formResult, results, tips) {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF('p', 'pt', 'a4');
         const { old: o, new: n, recommendation: rec } = results;
-        const now = new Date();
-        const dateStr = now.toLocaleDateString('en-IN', {
-            year: 'numeric', month: 'long', day: 'numeric',
-            hour: '2-digit', minute: '2-digit'
+        
+        let cursorY = 40;
+
+        // Header Title
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(18);
+        doc.setTextColor(108, 99, 255);
+        doc.text('ITR FORM SELECTOR & REGIME COMPARATOR', 40, cursorY);
+        
+        cursorY += 20;
+        doc.setFontSize(12);
+        doc.setTextColor(30, 30, 40);
+        doc.text('FY 2025-26 (AY 2026-27)', 40, cursorY);
+
+        // Disclaimer
+        cursorY += 30;
+        doc.setFillColor(255, 243, 205); // light yellow
+        doc.setDrawColor(255, 238, 186);
+        doc.setTextColor(133, 100, 4);
+        doc.rect(40, cursorY, 515, 35, 'FD');
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(9);
+        doc.text('⚠️ DISCLAIMER: This report was generated automatically by an AI-assisted tool.', 50, cursorY + 14);
+        doc.setFont('helvetica', 'normal');
+        doc.text('For informational purposes only. Please consult a qualified Chartered Accountant (CA) before filing your taxes.', 50, cursorY + 26);
+        
+        cursorY += 60;
+        
+        // Form Recommendation
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(14);
+        doc.setTextColor(108, 99, 255);
+        doc.text('► RECOMMENDED ITR FORM', 40, cursorY);
+        
+        cursorY += 25;
+        doc.setFontSize(12);
+        doc.setTextColor(30, 30, 40);
+        doc.text(formResult.fullName, 40, cursorY);
+        
+        cursorY += 15;
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(10);
+        doc.setTextColor(60, 60, 60);
+        const descLines = doc.splitTextToSize(formResult.description, 515);
+        doc.text(descLines, 40, cursorY);
+        cursorY += (descLines.length * 14) + 10;
+        
+        formResult.reasons.forEach(r => {
+            const reasonLine = doc.splitTextToSize(`• ${r}`, 505);
+            doc.text(reasonLine, 50, cursorY);
+            cursorY += (reasonLine.length * 14);
         });
 
-        let report = `
-═══════════════════════════════════════════════════════════
-       ITR FORM SELECTOR & REGIME COMPARATOR REPORT
-                    FY 2025-26 (AY 2026-27)
-═══════════════════════════════════════════════════════════
-Generated: ${dateStr}
-Disclaimer: For informational purposes only. Consult a CA.
+        cursorY += 25;
 
-───────────────────────────────────────────────────────────
-  RECOMMENDED ITR FORM: ${formResult.fullName}
-───────────────────────────────────────────────────────────
-${formResult.description}
+        // Regime Comparison Summary
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(14);
+        doc.setTextColor(108, 99, 255);
+        doc.text('► REGIME COMPARISON', 40, cursorY);
+        
+        cursorY += 20;
+        doc.setFontSize(11);
+        
+        // Winner Box
+        doc.setFillColor(230, 247, 255);
+        doc.rect(40, cursorY, 515, 30, 'F');
+        doc.setTextColor(0, 102, 204);
+        doc.text(`RECOMMENDATION: ${rec.message || 'Either regime works.'}`, 50, cursorY + 19);
+        cursorY += 40;
 
-Reasons:
-${formResult.reasons.map(r => `  ✓ ${r}`).join('\n')}
+        // Table
+        const f = (num) => TaxEngine.formatINR(num);
+        const tableBody = [
+            ['Gross Income', `Rs. ${f(o.grossSalary + o.otherIncome)}`, `Rs. ${f(n.grossSalary + n.otherIncome)}`],
+            ['Standard Deduction', `- Rs. ${f(o.standardDeduction)}`, `- Rs. ${f(n.standardDeduction)}`],
+            ...(o.hraExemption > 0 ? [['HRA Exemption', `- Rs. ${f(o.hraExemption)}`, '-']] : []),
+            ['Total Deductions (80C, 80D, etc.)', `- Rs. ${f(o.totalDeductions)}`, `- Rs. ${f(n.totalDeductions)}`],
+            ['Taxable Income', `Rs. ${f(o.taxableIncome)}`, `Rs. ${f(n.taxableIncome)}`],
+            ['Tax on Normal Slabs', `Rs. ${f(o.normalTax)}`, `Rs. ${f(n.normalTax)}`],
+            ...(o.specialRateTax > 0 || n.specialRateTax > 0 ? [['Tax on Capital Gains', `Rs. ${f(o.specialRateTax)}`, `Rs. ${f(n.specialRateTax)}`]] : []),
+            ...(o.rebate87A > 0 || n.rebate87A > 0 ? [['Less: Rebate u/s 87A', `- Rs. ${f(o.rebate87A)}`, `- Rs. ${f(n.rebate87A)}`]] : []),
+            ...(o.surcharge > 0 || n.surcharge > 0 ? [['Surcharge', `Rs. ${f(o.surcharge)}`, `Rs. ${f(n.surcharge)}`]] : []),
+            ['Cess (4%)', `Rs. ${f(o.cess)}`, `Rs. ${f(n.cess)}`],
+        ];
 
-───────────────────────────────────────────────────────────
-  REGIME COMPARISON
-───────────────────────────────────────────────────────────
+        doc.autoTable({
+            startY: cursorY,
+            head: [['Component', 'Old Regime', 'New Regime']],
+            body: tableBody,
+            foot: [['TOTAL TAX LIABILITY', `Rs. ${f(o.totalTaxLiability)}`, `Rs. ${f(n.totalTaxLiability)}`],
+                   ['Effective Tax Rate', `${o.effectiveTaxRate}%`, `${n.effectiveTaxRate}%`]],
+            theme: 'grid',
+            headStyles: { fillColor: [108, 99, 255], textColor: 255 },
+            footStyles: { fillColor: [240, 240, 245], textColor: [30, 30, 40], fontStyle: 'bold' },
+            styles: { fontSize: 9, cellPadding: 6 },
+            columnStyles: { 0: { cellWidth: 215 }, 1: { halign: 'right' }, 2: { halign: 'right' } }
+        });
 
-                        OLD REGIME       NEW REGIME
-─────────────────────  ─────────────    ─────────────
-Gross Salary           ₹${padNum(o.grossSalary)}    ₹${padNum(n.grossSalary)}
-Standard Deduction     ₹${padNum(o.standardDeduction)}    ₹${padNum(n.standardDeduction)}
-${o.hraExemption > 0 ? `HRA Exemption          ₹${padNum(o.hraExemption)}    ₹0\n` : ''}Net Salary Income      ₹${padNum(o.netSalaryIncome)}    ₹${padNum(n.netSalaryIncome)}
-Total Deductions       ₹${padNum(o.totalDeductions)}    ₹${padNum(n.totalDeductions)}
-Taxable Income         ₹${padNum(o.taxableIncome)}    ₹${padNum(n.taxableIncome)}
-Tax on Normal Income   ₹${padNum(o.normalTax)}    ₹${padNum(n.normalTax)}
-${o.specialRateTax > 0 || n.specialRateTax > 0 ? `Tax on Capital Gains   ₹${padNum(o.specialRateTax)}    ₹${padNum(n.specialRateTax)}\n` : ''}Rebate u/s 87A         ₹${padNum(o.rebate87A)}    ₹${padNum(n.rebate87A)}
-Surcharge              ₹${padNum(o.surcharge)}    ₹${padNum(n.surcharge)}
-Cess (4%)              ₹${padNum(o.cess)}    ₹${padNum(n.cess)}
-─────────────────────  ─────────────    ─────────────
-TOTAL TAX              ₹${padNum(o.totalTaxLiability)}    ₹${padNum(n.totalTaxLiability)}
-Effective Tax Rate     ${o.effectiveTaxRate}%${' '.repeat(Math.max(1, 13 - o.effectiveTaxRate.length - 1))}${n.effectiveTaxRate}%
+        cursorY = doc.lastAutoTable.finalY + 30;
 
-► RECOMMENDATION: ${rec.message}
+        // Tax Saving Tips
+        if (tips && tips.length > 0) {
+            if (cursorY > 700) {
+                doc.addPage();
+                cursorY = 40;
+            }
 
-───────────────────────────────────────────────────────────
-  TAX SAVING TIPS
-───────────────────────────────────────────────────────────
-${tips.map((t, i) => `${i + 1}. ${stripHTML(t.text)}${t.savings ? ` [${t.savings}]` : ''}`).join('\n')}
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(14);
+            doc.setTextColor(108, 99, 255);
+            doc.text('► TAX SAVING TIPS', 40, cursorY);
+            
+            cursorY += 25;
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(10);
+            doc.setTextColor(60, 60, 60);
+            
+            tips.forEach((t, i) => {
+                const tipText = `${i + 1}. ${stripHTML(t.text)}`;
+                const tipLines = doc.splitTextToSize(tipText, 515);
+                
+                if (cursorY + (tipLines.length * 14) > 800) {
+                    doc.addPage();
+                    cursorY = 40;
+                }
+                
+                doc.text(tipLines, 40, cursorY);
+                cursorY += (tipLines.length * 14) + 10;
+            });
+        }
 
-═══════════════════════════════════════════════════════════
-  This report was generated locally in your browser.
-  No data was stored or transmitted. 
-  Built for Indian Taxpayers • FY 2025-26 (AY 2026-27)
-═══════════════════════════════════════════════════════════
-`;
+        // Footer loop
+        const pageCount = doc.internal.getNumberOfPages();
+        for (let i = 1; i <= pageCount; i++) {
+            doc.setPage(i);
+            doc.setFont('helvetica', 'italic');
+            doc.setFontSize(8);
+            doc.setTextColor(150, 150, 150);
+            const stamp = `Generated on ${new Date().toLocaleDateString('en-IN', { year: 'numeric', month: 'short', day: 'numeric' })} | No data stored`;
+            doc.text(stamp, 40, 810);
+            doc.text(`Page ${i} of ${pageCount}`, 515, 810, { align: 'right' });
+        }
 
-        return report;
-    }
-
-    function padNum(num) {
-        return TaxEngine.formatINR(num).padStart(12, ' ');
+        doc.save(`ITR_Tax_Report_FY2025-26_${new Date().toISOString().slice(0, 10)}.pdf`);
     }
 
     function stripHTML(html) {
@@ -414,6 +501,6 @@ ${tips.map((t, i) => `${i + 1}. ${stripHTML(t.text)}${t.savings ? ` [${t.savings
         renderComparison,
         renderBreakdown,
         renderTips,
-        generateReport,
+        generatePDF,
     };
 })();

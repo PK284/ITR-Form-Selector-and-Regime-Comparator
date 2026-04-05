@@ -592,16 +592,19 @@ const TaxEngine = (() => {
             recommendation = {
                 winner: 'new',
                 savings: savings,
+                message: `You should opt for the New Tax Regime to save ₹${formatINR(savings)}.`
             };
         } else if (savings < 0) {
             recommendation = {
                 winner: 'old',
                 savings: Math.abs(savings),
+                message: `You should opt for the Old Tax Regime to save ₹${formatINR(Math.abs(savings))}.`
             };
         } else {
             recommendation = {
                 winner: 'tie',
                 savings: 0,
+                message: `Both regimes result in the exact same tax liability. You may choose either.`
             };
         }
 

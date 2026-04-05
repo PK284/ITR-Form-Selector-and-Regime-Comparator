@@ -249,45 +249,12 @@
     function downloadReport() {
         if (!lastResults || !lastFormResult) return;
         const inputs = collectInputs();
-        const reportText = UIController.generateReport(lastFormResult, lastResults, lastTips || []);
         
         try {
-            const { jsPDF } = window.jspdf;
-            const doc = new jsPDF('p', 'pt', 'a4');
-            
-            // Setup Courier font for perfectly aligned monospaced output
-            doc.setFont('courier', 'normal');
-            doc.setFontSize(10);
-            
-            // Format text splitting into lines (fit inside A4 width)
-            const margin = 40;
-            const lines = doc.splitTextToSize(reportText.replace(/₹/g, 'Rs.'), doc.internal.pageSize.getWidth() - margin * 2);
-            
-            // If the text is very long, it will auto-add pages if we manage pagination, or we can just print it
-            let cursorY = 40;
-            for (let i = 0; i < lines.length; i++) {
-                if (cursorY > doc.internal.pageSize.getHeight() - 40) {
-                    doc.addPage();
-                    cursorY = 40;
-                }
-                doc.text(lines[i], margin, cursorY);
-                cursorY += 12; // line height
-            }
-            
-            doc.save(`ITR_Tax_Report_FY2025-26_${new Date().toISOString().slice(0, 10)}.pdf`);
+            UIController.generatePDF(lastFormResult, lastResults, lastTips || []);
         } catch (e) {
             console.error('PDF Generation Error:', e);
-            alert('PDF generation failed. Downloading as text file instead.');
-            // Fallback to text file if jsPDF fails to load
-            const blob = new Blob([reportText], { type: 'text/plain' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `ITR_Tax_Report_FY2025-26_${new Date().toISOString().slice(0, 10)}.txt`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
+            alert('PDF generation failed. Please try again later. Ensure you have network connectivity for the PDF engine to load.');
         }
     }
 
