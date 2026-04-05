@@ -165,9 +165,9 @@ const FormSelector = (() => {
             warnings.push('Schedule FA (Foreign Assets) reporting is mandatory in ITR-2.');
         }
 
-        if (numProperties > 2) {
+        if (numProperties > 1) {
             needsITR2 = true;
-            reasons.push('More than 2 house properties owned');
+            reasons.push('More than 1 house property owned');
         }
 
         if (totalIncome > 5000000) {
@@ -186,8 +186,8 @@ const FormSelector = (() => {
             form = 'ITR-1';
             // ITR-1 eligibility reasons
             reasons.push('Resident individual with salary/pension income');
-            if (numProperties <= 2 && (inputs.rentalIncome || 0) > 0) {
-                reasons.push('House property income from up to 2 properties');
+            if (numProperties <= 1 && (inputs.rentalIncome || 0) > 0) {
+                reasons.push('House property income from up to 1 property');
             }
             if ((inputs.interestIncome || 0) > 0 || (inputs.dividendIncome || 0) > 0 || agriculturalIncome > 0) {
                 reasons.push('Other sources (interest, dividend, agri < 5000) income included');

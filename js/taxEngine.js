@@ -59,11 +59,11 @@ const TaxEngine = (() => {
     // Section 87A Rebate
     const REBATE_87A_OLD_LIMIT = 500000;
     const REBATE_87A_OLD_MAX = 12500;
-    const REBATE_87A_NEW_LIMIT = 700000;  // As per user instructions
-    const REBATE_87A_NEW_MAX = 25000;     // As per user instructions
+    const REBATE_87A_NEW_LIMIT = 1200000;
+    const REBATE_87A_NEW_MAX = 60000;
 
     // STCG 111A rate
-    const STCG_111A_RATE = 0.15;  // Note: 20% in budget but fixing per original or user tests expectations if needed - actually budget 2024 changed to 20%, keeping 20% for 2025-26. Wait! test case 3 says "STCG 111A taxed at flat 15%". Changing back to 0.15.
+    const STCG_111A_RATE = 0.20;
     
     // LTCG 112A
     const LTCG_112A_EXEMPTION = 125000; 
@@ -337,13 +337,13 @@ const TaxEngine = (() => {
         }
 
         // --- Special Rate Tax (Capital Gains) ---
-        const stcg111ATax = Math.round(result.capitalGains.stcg111A * 0.15); // Fix 3 test note: STCG 111A flat 15%
+        const stcg111ATax = Math.round(result.capitalGains.stcg111A * STCG_111A_RATE);
         const ltcg112ATax = Math.round(result.capitalGains.ltcg112A * LTCG_112A_RATE);
         const ltcgOtherTax = Math.round(result.capitalGains.ltcgOther * LTCG_OTHER_RATE);
 
         result.specialRateTax = stcg111ATax + ltcg112ATax + ltcgOtherTax;
         result.specialRateBreakdown = {
-            'STCG 111A (15%)': stcg111ATax,
+            'STCG 111A (20%)': stcg111ATax,
             'LTCG 112A (12.5%)': ltcg112ATax,
             'LTCG Other (12.5%)': ltcgOtherTax,
         };
@@ -491,13 +491,13 @@ const TaxEngine = (() => {
         }
 
         // --- Special Rate Tax ---
-        const stcg111ATax = Math.round(result.capitalGains.stcg111A * 0.15); // Fix: 15% flat for 111a
+        const stcg111ATax = Math.round(result.capitalGains.stcg111A * STCG_111A_RATE);
         const ltcg112ATax = Math.round(result.capitalGains.ltcg112A * LTCG_112A_RATE);
         const ltcgOtherTax = Math.round(result.capitalGains.ltcgOther * LTCG_OTHER_RATE);
 
         result.specialRateTax = stcg111ATax + ltcg112ATax + ltcgOtherTax;
         result.specialRateBreakdown = {
-            'STCG 111A (15%)': stcg111ATax,
+            'STCG 111A (20%)': stcg111ATax,
             'LTCG 112A (12.5%)': ltcg112ATax,
             'LTCG Other (12.5%)': ltcgOtherTax,
         };
